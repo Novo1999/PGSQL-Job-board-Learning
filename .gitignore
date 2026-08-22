@@ -1,0 +1,9 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real secrets/connection strings
+.env
+
+# Logs
+npm-debug.log*
+*.log
