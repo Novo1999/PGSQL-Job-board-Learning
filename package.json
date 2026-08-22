@@ -2,10 +2,12 @@
   "name": "job-board",
   "version": "1.0.0",
   "description": "A Job Board backend built to learn SQL and PostgreSQL deeply. Node.js + Express + node-postgres, no ORM.",
-  "main": "src/server.js",
+  "type": "module",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts"
   },
   "keywords": [
     "postgresql",
@@ -22,6 +24,10 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

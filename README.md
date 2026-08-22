@@ -20,8 +20,9 @@ visible so the SQL is always front and center.
 - **Node.js** + **Express** — HTTP server
 - **PostgreSQL** — the database (the star of the show)
 - **[`pg`](https://node-postgres.com/)** (node-postgres) — the PostgreSQL driver
+- **TypeScript** — application code with native ES modules
 - **dotenv** — loads configuration from `.env`
-- **nodemon** — auto-restart during development
+- **tsx** — runs and watches TypeScript during development
 
 > **No ORM. No query builder.** No Prisma / Drizzle / Sequelize / TypeORM /
 > Knex. All SQL is written and visible by design.
@@ -120,18 +121,18 @@ curl http://localhost:3000/api/jobs
 ```
 .
 ├── src/
-│   ├── server.js              # Express app + /health check
-│   ├── db.js                  # single pg connection pool (reused everywhere)
+│   ├── server.ts              # Express app + /health check
+│   ├── db.ts                  # single pg connection pool (reused everywhere)
 │   ├── routes/                # URL -> controller wiring (one file per resource)
-│   │   ├── jobs.js
-│   │   ├── users.js
-│   │   ├── companies.js
-│   │   └── applications.js
+│   │   ├── jobs.ts
+│   │   ├── users.ts
+│   │   ├── companies.ts
+│   │   └── applications.ts
 │   ├── controllers/           # request handlers — SQL lives here, visible
-│   │   ├── jobsController.js
-│   │   ├── usersController.js
-│   │   ├── companiesController.js
-│   │   └── applicationsController.js
+│   │   ├── jobsController.ts
+│   │   ├── usersController.ts
+│   │   ├── companiesController.ts
+│   │   └── applicationsController.ts
 │   └── services/              # reserved for reusable query logic (empty for now)
 ├── sql/
 │   ├── schema.sql             # tables, constraints, foreign keys, indexes
@@ -139,6 +140,7 @@ curl http://localhost:3000/api/jobs
 ├── .env.example
 ├── .gitignore
 ├── package.json
+├── tsconfig.json
 └── README.md
 ```
 
