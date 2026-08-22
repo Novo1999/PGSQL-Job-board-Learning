@@ -1,16 +1,13 @@
 import type { Request, Response } from 'express';
 import type { QueryResult } from 'pg';
 import { pool } from '../db.js';
-import type { JobRow } from '../types/database.js';
+import type { CreateJobInput, JobRow, UpdateJobInput } from '../types/database.js';
+
+type IdParams = { id: string };
 
 export async function listJobs(_req: Request, res: Response): Promise<void> {
   try {
-    const result: QueryResult<JobRow> = await pool.query(`
-      SELECT id, company_id, title, description,
-             salary_min, salary_max, location, created_at
-      FROM jobs
-      ORDER BY created_at DESC
-    `);
+    const result: QueryResult<JobRow> = await pool.query<JobRow>(``);
     res.json(result.rows);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -19,37 +16,69 @@ export async function listJobs(_req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function getJobById(
-  req: Request<{ id: string }>,
-  res: Response
-): Promise<void> {
-  const { id } = req.params;
-
-  if (!/^\d+$/.test(id)) {
-    res.status(400).json({ error: 'Job id must be a positive integer' });
-    return;
-  }
-
+export async function getJobById(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<JobRow> = await pool.query(
-      `
-        SELECT id, company_id, title, description,
-               salary_min, salary_max, location, created_at
-        FROM jobs
-        WHERE id = $1
-      `,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'Job not found' });
-      return;
-    }
-
+    const result: QueryResult<JobRow> = await pool.query<JobRow>(``, [req.params.id]);
     res.json(result.rows[0]);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('Failed to fetch job:', message);
+    console.error('Failed to get job:', message);
     res.status(500).json({ error: 'Failed to fetch job' });
+  }
+}
+
+export async function createJob(
+  req: Request<{}, unknown, CreateJobInput>,
+  res: Response
+): Promise<void> {
+  try {
+    const result: QueryResult<JobRow> = await pool.query<JobRow>(``, [
+      req.body.company_id,
+      req.body.title,
+      req.body.description,
+      req.body.salary_min,
+      req.body.salary_max,
+      req.body.location,
+    ]);
+    res.status(201).json(result.rows[0]);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Failed to create job:', message);
+    res.status(500).json({ error: 'Failed to create job' });
+  }
+}
+
+export async function updateJob(
+  req: Request<IdParams, unknown, UpdateJobInput>,
+  res: Response
+): Promise<void> {
+  try {
+    const result: QueryResult<JobRow> = await pool.query<JobRow>(``, [
+      req.params.id,
+      req.body.company_id,
+      req.body.title,
+      req.body.description,
+      req.body.salary_min,
+      req.body.salary_max,
+      req.body.location,
+    ]);
+    res.json(result.rows[0]);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Failed to update job:', message);
+    res.status(500).json({ error: 'Failed to update job' });
+  }
+}
+
+export async function deleteJob(req: Request<IdParams>, res: Response): Promise<void> {
+  try {
+    const result: QueryResult<Pick<JobRow, 'id'>> = await pool.query<Pick<JobRow, 'id'>>(``, [
+      req.params.id,
+    ]);
+    res.json(result.rows[0]);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Failed to delete job:', message);
+    res.status(500).json({ error: 'Failed to delete job' });
   }
 }

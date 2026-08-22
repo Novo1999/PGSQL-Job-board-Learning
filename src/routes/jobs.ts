@@ -1,9 +1,18 @@
 import express from 'express';
-import { getJobById, listJobs } from '../controllers/jobsController.js';
+import {
+  createJob,
+  deleteJob,
+  getJobById,
+  listJobs,
+  updateJob,
+} from '../controllers/jobsController.js';
 
 const router = express.Router();
 
 router.get('/', listJobs);
-router.get('/jobs/:id', getJobById);
+router.get('/:id', getJobById);
+router.post('/', createJob);
+router.patch('/:id', updateJob);
+router.delete('/:id', deleteJob);
 
 export default router;
