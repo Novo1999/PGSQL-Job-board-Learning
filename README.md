@@ -85,9 +85,10 @@ PORT=3000
 psql -d job_board -f sql/schema.sql
 ```
 
-This creates the `users`, `companies`, `jobs`, and `applications` tables with all
-their constraints and indexes. The script drops the tables first, so it's safe
-to re-run while you experiment.
+This creates all ten tables — `users`, `skills`, `companies`, `jobs`,
+`job_skills`, `user_skills`, `applications`, `application_events`, `saved_jobs`
+and `job_views` — with their constraints and indexes. The script drops the
+tables first, so it's safe to re-run while you experiment.
 
 ## 8. Load the seed data
 
@@ -127,12 +128,21 @@ curl http://localhost:3000/api/jobs
 │   │   ├── jobs.ts
 │   │   ├── users.ts
 │   │   ├── companies.ts
-│   │   └── applications.ts
+│   │   ├── applications.ts
+│   │   ├── skills.ts
+│   │   └── analytics.ts
 │   ├── controllers/           # request handlers — SQL lives here, visible
 │   │   ├── jobsController.ts
 │   │   ├── usersController.ts
 │   │   ├── companiesController.ts
-│   │   └── applicationsController.ts
+│   │   ├── applicationsController.ts
+│   │   ├── savedJobsController.ts
+│   │   ├── skillsController.ts
+│   │   └── analyticsController.ts
+│   ├── types/
+│   │   └── database.ts        # row + projection types (the shape each query returns)
+│   ├── utils/
+│   │   └── http.ts            # query-param parsing + PostgreSQL error -> HTTP status
 │   └── services/              # reserved for reusable query logic (empty for now)
 ├── sql/
 │   ├── schema.sql             # tables, constraints, foreign keys, indexes
@@ -179,43 +189,114 @@ const result = await pool.query(
 ## 12. The database model
 
 ```
-users ──1─────N── applications ──N─────1── jobs ──N─────1── companies
-
-users     1 ── N  applications      (a user has many applications)
-jobs      1 ── N  applications      (a job has many applications)
-companies 1 ── N  jobs              (a company has many jobs)
+                     ┌── job_skills ──┐
+companies ──1──N── jobs ──1──N── applications ──N──1── users ──N── user_skills
+                     │                    │                            │
+                     ├── saved_jobs ──────┼────────────────────────────┘
+                     └── job_views        └── application_events
+                                                                    skills
 ```
 
-`users` and `jobs` are therefore **many-to-many through `applications`**. A user
-can apply to a job only once — enforced by `UNIQUE (job_id, user_id)` in the
-database, not just in application code.
+| Relationship | Cardinality | Notes |
+| --- | --- | --- |
+| `companies` → `jobs` | 1 : N | `ON DELETE CASCADE` — a job cannot outlive its company |
+| `users` → `companies` | 1 : N | via `owner_id`, `ON DELETE SET NULL` — a company outlives its owner |
+| `jobs` ↔ `users` | N : M | through `applications`; `UNIQUE (job_id, user_id)` |
+| `jobs` ↔ `skills` | N : M | through `job_skills` (`is_required` splits must-have from nice-to-have) |
+| `users` ↔ `skills` | N : M | through `user_skills` |
+| `users` ↔ `jobs` | N : M | through `saved_jobs` (bookmarks) |
+| `applications` → `application_events` | 1 : N | append-only audit trail of every status change |
+| `jobs` → `job_views` | 1 : N | event stream; `user_id` is NULL for logged-out visitors |
 
-The seed data is shaped for interesting practice:
-- **Junior Backend Engineer** has **no applications** → practice `LEFT JOIN`.
-- **Junior Backend Engineer** has **NULL salaries** → practice `NULL` / `COALESCE`.
-- **Data Analyst** has **three** applicants; **Senior Backend Engineer** has two.
-- A full spread of statuses (`pending` / `accepted` / `rejected`), salaries,
-  locations, and dates.
+Two rules carry most of the weight:
 
-## 13. Learning progression (suggested)
+**A posting is *live* only when** `status = 'open' AND (expires_at IS NULL OR
+expires_at > now())`. Candidate-facing queries must apply it; employer-facing
+queries must not. Nearly every query in the project sits on one side of that
+line.
 
-Once the foundation runs, build features incrementally and let the SQL get
-progressively harder:
+**`applications.status` and `application_events` must never disagree.** Every
+status change writes both, inside one transaction.
 
-1. **Basic reads** — `GET /api/jobs/:id`, filter jobs by `location` / salary
-   range (`WHERE`, `ORDER BY`, `LIMIT` / `OFFSET`).
-2. **Search** — title search with `ILIKE` and parameterized queries.
-3. **Writes** — `POST` a job, `POST` an application (watch the `UNIQUE`
-   constraint reject duplicates).
-4. **JOINs** — list jobs *with* their company name; list a user's applications
-   *with* job + company details.
-5. **Aggregation** — applications-per-job, jobs-per-company, average salary per
-   company (`GROUP BY`, `HAVING`, `COUNT`, `AVG`).
-6. **Subqueries & CTEs** — "jobs with more applicants than average", multi-step
-   queries with `WITH`.
-7. **Window functions** — rank jobs by salary within each company
-   (`RANK() OVER (PARTITION BY ...)`).
-8. **Transactions** — multi-step writes that must succeed or fail together.
+### How the seed data is shaped
+
+It is small (11 jobs, 15 applications) but every row is there for a reason:
+
+| What | Why |
+| --- | --- |
+| **Junior Backend Engineer** — no applications, NULL salaries | `LEFT JOIN`, `NULL` / `COALESCE`, `avg()` ignoring NULLs |
+| **Technical Writer** — `draft` | never published; must not leak to candidates |
+| **Support Engineer** — `open` but `expires_at` in the past | the trap: status alone says live, the date says otherwise |
+| **QA Engineer** — `closed`, still has applicants | closing ≠ rejecting; employer queries must still find them |
+| **Solutions Architect** — `archived` | hidden even from the employer dashboard |
+| **Data Analyst** / **Senior Backend Engineer** — 3 applicants each | `GROUP BY`, `HAVING`, ranking |
+| **Emma** — a candidate with zero skills recorded | matching queries must not return everything for her |
+| **Frank** — owns two companies | grouping by owner |
+| **Senior Backend Engineer** — 3 required skills, nobody holds all 3 | strict "matches every requirement" correctly returns nothing |
+| **174 `job_views` spread over 28 days**, ~1/3 anonymous | `date_trunc`, gap-filling, `COUNT(*)` vs `COUNT(user_id)` |
+| Applications spread across all 7 pipeline stages | funnels, conversion rates, `LAG()` over the event trail |
+
+## 13. The controllers are the exercise
+
+Every controller in `src/controllers/` is fully written **except the SQL**:
+
+```ts
+const result = await pool.query<JobListItemRow>(``, [ /* $1, $2, ... */ ]);
+//                                            ^^ your job
+```
+
+Above each one is a plain-English description of the feature: what it is for,
+who uses it, and the rules it has to honour. No SQL, no hints — working out the
+query is the point.
+
+The rest of the information you need is in the code itself:
+
+- The **values passed to the query** are right there in the array, so `$1`, `$2`,
+  … are whatever that array holds, in order.
+- The **columns your `SELECT` must produce** are the fields of the type in the
+  `pool.query<…>()` generic. Those types live in `src/types/database.ts`, and
+  the ones under *Projection rows* exist purely to describe query output.
+
+Nothing crashes while a query is still blank: an empty query string returns no
+rows, so the endpoint answers with an empty list or its own `404` / `409` guard.
+That means you can fill them in one at a time and test as you go, with the
+Postman collection in `postman/` or with `curl`.
+
+### Suggested order
+
+Difficulty climbs roughly with this list:
+
+| # | Theme | Start with |
+| --- | --- | --- |
+| 1 | Reads, filters, pagination | `getJobById`, `listSkills`, `getJobSkills` |
+| 2 | Optional filters in one query | `browseJobs`, `listUsers`, `listCompanies` |
+| 3 | Writes + `RETURNING` | `createJob`, `createUser`, `updateJob` |
+| 4 | JOINs | `listUserApplications`, `listCompanyJobs` |
+| 5 | Aggregation, `GROUP BY` / `HAVING` | `getUserDashboard`, `getTopHiringCompanies` |
+| 6 | Outer joins that must keep empty groups | `listCompanies`, `getApplicationFunnel` |
+| 7 | Many-to-many matching, relational division | `searchCandidates`, `getRecommendedJobs` |
+| 8 | Upserts, `ON CONFLICT`, bulk writes | `saveJob`, `createSkill`, `setJobSkills` |
+| 9 | Transactions + row locking | `applyToJob`, `updateApplicationStatus`, `recordJobView` |
+| 10 | Window functions | `getCompanySalaryBands`, `getApplicationTimeline` |
+| 11 | CTEs, time series, percentiles | everything in `analyticsController.ts` |
+
+## 14. API surface
+
+| Resource | Endpoints |
+| --- | --- |
+| Jobs | `GET /api/jobs` · `/trending` · `/expiring` · `/manage` · `GET|PATCH|DELETE /:id` · `/:id/similar` · `/:id/skills` (GET, PUT) · `/:id/applications` · `/:id/views` · `POST /:id/view` · `POST /:id/publish` · `POST /:id/close` |
+| Users | `GET|POST /api/users` · `/candidates/search` · `GET|PATCH|DELETE /:id` · `POST /:id/deactivate` · `/:id/skills` (GET, PUT) · `/:id/applications` · `/:id/dashboard` · `/:id/recommended-jobs` |
+| Saved jobs | `GET|POST /api/users/:userId/saved-jobs` · `DELETE /api/users/:userId/saved-jobs/:jobId` |
+| Companies | `GET|POST /api/companies` · `/top` · `GET|PATCH|DELETE /:id` · `/:id/jobs` · `/:id/funnel` · `/:id/salary-bands` |
+| Applications | `GET|POST /api/applications` · `/funnel` · `POST /bulk-reject` · `GET|DELETE /:id` · `/:id/timeline` · `PATCH /:id/status` · `POST /:id/withdraw` |
+| Skills | `GET|POST /api/skills` · `/demand` · `DELETE /:id` |
+| Analytics | `/api/analytics/overview` · `/salary-benchmarks` · `/applications-over-time` · `/top-jobs-per-company` · `/conversion` · `/time-to-hire` |
+
+There is deliberately **no authentication**. Endpoints that would be scoped to
+the logged-in user take the acting user's id as a parameter instead
+(`?company_id=`, `user_id` in the body). Where that matters — withdrawing your
+own application, deleting your own bookmark — the ownership check belongs in the
+`WHERE` clause, and the requirement comments say so.
 
 > **SQLZoo note:** SQLZoo uses MySQL; this project uses PostgreSQL. They share
 > most core SQL, but some syntax differs (e.g. `LIMIT`/`OFFSET`, string
