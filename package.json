@@ -21,10 +21,12 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "morgan": "^1.11.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.5",
+    "@types/morgan": "^1.9.10",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.15.6",
     "tsx": "^4.20.6",

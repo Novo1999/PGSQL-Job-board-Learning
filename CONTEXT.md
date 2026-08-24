@@ -305,7 +305,7 @@ Conventions to know when helping:
 
 ---
 
-## Endpoints (59 handlers, all routed, all with empty SQL)
+## Endpoints (59 handlers, all routed, 69 query sites)
 
 | Resource | Endpoints |
 | --- | --- |
@@ -324,16 +324,147 @@ removing your own bookmark — the check belongs in the `WHERE` clause.
 
 ---
 
+## Work order — all 69 query sites, in the order to write them
+
+69 empty query sites across 7 controllers (`listUsers` is the only one with SQL
+in it so far). They are **not** ordered by file, because no single controller is
+uniformly easy — `usersController` alone spans the easiest query in the project
+and three of the hardest. Each stage below only uses concepts from the stages
+above it.
+
+Tick these off as they go green.
+
+### Stage 1 — Single-table reads and writes (7 sites)
+
+`usersController`, the CRUD half. No joins yet.
+
+- [ ] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
+- [ ] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
+- [ ] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
+- [ ] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
+- [ ] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)
+- [ ] `getUserSkills` — `GET /api/users/:id/skills` — first join; `ORDER BY ... DESC NULLS LAST`
+- [ ] `getUserById` — `GET /api/users/:id` — counts from three other tables on one row
+
+### Stage 2 — Junction tables and idempotent writes (3 sites)
+
+`savedJobsController`. Smallest file in the repo, and the cleanest introduction
+to a many-to-many table.
+
+- [ ] `saveJob` — `POST /api/users/:userId/saved-jobs` — `INSERT ... SELECT` to gate on "job is live", `ON CONFLICT DO NOTHING RETURNING` so the second tap returns no row instead of erroring
+- [ ] `unsaveJob` — `DELETE .../saved-jobs/:jobId` — ownership belongs in the `WHERE`, not in an `if` above it
+- [ ] `listSavedJobs` — `GET /api/users/:userId/saved-jobs` — `LEFT JOIN` to the job, `EXISTS` for "already applied", and a bookmark that must survive its posting expiring
+
+### Stage 3 — Grouping, and the LEFT JOIN zero (4 sites)
+
+`skillsController`. The `demand` query is where most people meet the single most
+common aggregation bug.
+
+- [ ] `listSkills` — `GET /api/skills` — rank prefix matches above substring matches (`ORDER BY CASE WHEN ... THEN 0 ELSE 1 END`)
+- [ ] `createSkill` — `POST /api/skills` — `ON CONFLICT DO UPDATE` upsert, safe under a double-submit
+- [ ] `deleteSkill` — `DELETE /api/skills/:id` — what the FKs from `job_skills` / `user_skills` do here
+- [ ] `getSkillDemand` — `GET /api/skills/demand` — **the lesson:** a `WHERE` clause on the right-hand table silently turns a `LEFT JOIN` back into an inner one and drops every zero-demand skill. Put the "live posting" condition in the `ON`, and use `COUNT(DISTINCT ...)` once two joins multiply rows
+
+### Stage 4 — Aggregates per group (9 sites)
+
+`companiesController`. Same zero-preservation lesson as Stage 3, at scale, plus
+the first window function.
+
+- [ ] `updateCompany` — `PATCH /api/companies/:id` — `COALESCE` again, now familiar
+- [ ] `createCompany` — `POST /api/companies` — `INSERT ... SELECT` that only inserts if `owner_id` is a user with role `employer`; zero rows back means a 400
+- [ ] `listCompanyJobs` — `GET /api/companies/:id/jobs` — one query, two audiences, switched by a boolean parameter inside the predicate
+- [ ] `listCompanies` — `GET /api/companies` — `COUNT(*) FILTER (WHERE ...)` for live postings, keeping companies with zero
+- [ ] `getCompanyById` — `GET /api/companies/:id` — several aggregates at once; `AVG` skips NULL salaries on its own, and a company with no owner must not vanish
+- [ ] `getTopHiringCompanies` — `GET /api/companies/top` — time-windowed counts plus `HAVING` for the minimum-activity cut
+- [ ] `deleteCompany` — `DELETE /api/companies/:id` — a guard expressed as a `WHERE ... AND (NOT EXISTS (live jobs) OR $2)`; delete Initech and count the wreckage
+- [ ] `getCompanyFunnel` — `GET /api/companies/:id/funnel` — `unnest($3::text[])` LEFT JOINed to the counts, so every stage appears in pipeline order including the empty ones
+- [ ] `getCompanySalaryBands` — `GET /api/companies/:id/salary-bands` — first window function: `AVG(...) OVER (PARTITION BY company_id)` to compare each row against its own group
+
+### Stage 5 — Big filtered reads, and the first transactions (20 sites)
+
+`jobsController`. The largest file. Start with its small queries, finish with the
+two multi-statement transactions.
+
+- [ ] `getJobSkills` — `GET /api/jobs/:id/skills` — required before nice-to-have
+- [ ] `getJobById` — `GET /api/jobs/:id` — detail plus application and bookmark counts
+- [ ] `createJob` — `POST /api/jobs` — omit columns entirely so the schema defaults apply; status is forced to `draft`, never taken from the client
+- [ ] `updateJob` — `PATCH /api/jobs/:id` — `COALESCE`, with `status <> 'archived'` in the `WHERE` so an archived posting comes back as zero rows
+- [ ] `publishJob` — `POST /api/jobs/:id/publish` — conditional `UPDATE` guarded on current status; re-opening a closed posting keeps its original `published_at`
+- [ ] `closeJob` — `POST /api/jobs/:id/close` — same shape, narrower guard
+- [ ] `deleteJob` (archive branch) — soft delete, history intact
+- [ ] `deleteJob` (hard branch) — `?hard=true`; run it once against seed data and see how far the cascade reaches
+- [ ] `listCompanyJobsForEmployer` — `GET /api/jobs/manage` — the mirror image of the public board: same table, inverted visibility rules
+- [ ] `browseJobs` — `GET /api/jobs` — the big one. Thirteen parameters, every filter optional and combinable, `= ANY($8::bigint[])` for skills, and a dynamic sort via `ORDER BY CASE $11 WHEN 'salary_high' THEN ... END`. Decide what a salary filter does to postings with no salary listed
+- [ ] `getExpiringJobs` — `GET /api/jobs/expiring` — interval arithmetic and days-remaining
+- [ ] `getSimilarJobs` — `GET /api/jobs/:id/similar` — self-join through `job_skills`, ranked by shared-skill count; a posting with no skills must not match the whole board
+- [ ] `listJobApplicants` — `GET /api/jobs/:id/applications` — match score as matched-required-skills over total-required
+- [ ] `recordJobView` (insert) — `INSERT ... SELECT` that yields no row unless the posting is live
+- [ ] `recordJobView` (counter) — `UPDATE ... RETURNING` in the **same transaction**; this is business rule 4, and the two rows drift apart forever if it isn't
+- [ ] `setJobSkills` (delete) — remove what is no longer in the submitted list: `NOT (skill_id = ANY($2::bigint[]))`
+- [ ] `setJobSkills` (upsert) — `unnest($2::bigint[], $3::boolean[])` to insert two parallel arrays in one statement, with `ON CONFLICT DO UPDATE` for changed flags
+- [ ] `setJobSkills` (read-back) — inside the transaction, before `COMMIT`
+- [ ] `getTrendingJobs` — `GET /api/jobs/trending` — two time windows counted side by side and compared for direction
+- [ ] `getJobViewStats` — `GET /api/jobs/:id/views` — `generate_series` LEFT JOINed to `date_trunc` buckets so quiet days come back as zeros rather than missing, split logged-in vs anonymous with `FILTER`
+
+### Stage 6 — The hard users endpoints, revisited (7 sites)
+
+Come back to what was skipped in Stage 1. Every one of these is now a variation
+on something already written.
+
+- [ ] `listUserApplications` — `GET /api/users/:id/applications` — multi-join; applications to expired postings still belong here
+- [ ] `getUserDashboard` — `GET /api/users/:id/dashboard` — six `COUNT(*) FILTER (WHERE ...)` in one pass; a candidate who has done nothing gets zeros, not an empty response
+- [ ] `setUserSkills` (delete / upsert / read-back — 3 sites) — the same `unnest` + `ON CONFLICT` transaction as `setJobSkills`, with years instead of flags. Employers must be refused
+- [ ] `searchCandidates` — `GET /api/users/candidates/search` — ANY vs ALL matching: `HAVING COUNT(DISTINCT skill_id) = cardinality($1)` is the difference between the two
+- [ ] `getRecommendedJobs` — `GET /api/users/:id/recommended-jobs` — scoring against a profile, `NOT EXISTS` to exclude jobs already applied to, and deciding what Emma (no skills at all) should see
+
+### Stage 7 — Transactions and concurrency (13 sites)
+
+`applicationsController`. The rules from `## Business rules` are the whole point
+of this file — status and history must never disagree.
+
+- [ ] `getApplicationById` — `GET /api/applications/:id` — the widest join in the project: application + candidate + job + company + skill overlap
+- [ ] `deleteApplication` — `DELETE /api/applications/:id`
+- [ ] `listApplications` — `GET /api/applications` — the employer inbox; `stale_days` ("untouched for N days"), and sorting by **pipeline order**, which is not alphabetical
+- [ ] `applyToJob` (insert) — `INSERT ... SELECT` gated on live-job-and-real-candidate; the `UNIQUE (job_id, user_id)` is what stops the double-clicked Apply button, not a check-then-insert
+- [ ] `applyToJob` (history) — the `pending` event, same transaction
+- [ ] `withdrawApplication` (update) — ownership and "not already terminal", both in the `WHERE`
+- [ ] `withdrawApplication` (history)
+- [ ] `updateApplicationStatus` (lock) — `SELECT ... FOR UPDATE`; this is the row lock that stops two recruiters writing conflicting history
+- [ ] `updateApplicationStatus` (update) — guarded against terminal statuses
+- [ ] `updateApplicationStatus` (history) — records where it came from
+- [ ] `bulkRejectApplications` — `POST /api/applications/bulk-reject` — **one** round trip however many ids: `WHERE id = ANY($1) AND status = ANY($2)`, with a CTE writing the history rows and `RETURNING` telling you how many actually moved
+- [ ] `getApplicationTimeline` — `GET /api/applications/:id/timeline` — `LAG()` for the gap since the previous step; the first step has no gap
+- [ ] `getApplicationFunnel` — `GET /api/applications/funnel` — the company funnel again, platform-wide
+
+### Stage 8 — Reporting (6 sites)
+
+`analyticsController`. Nothing writes. Every one of these assumes the stages
+above.
+
+- [ ] `getTopJobsPerCompany` — `GET /api/analytics/top-jobs-per-company` — `ROW_NUMBER() OVER (PARTITION BY company_id ORDER BY ...)` in a subquery, filtered outside it. The canonical top-N-per-group
+- [ ] `getApplicationsOverTime` — `/applications-over-time` — `generate_series` + `date_trunc` gap filling, now with a variable bucket
+- [ ] `getOverview` — `/overview` — eleven numbers from five tables in one round trip; CTEs keep it readable
+- [ ] `getConversionRates` — `/conversion` — **the trap:** current status cannot answer this. Someone at `rejected` today may have been interviewed on the way there. Count from `application_events`, and keep rejection/withdrawal out of the chain
+- [ ] `getSalaryBenchmarks` — `/salary-benchmarks` — `percentile_cont` for median and quartiles, `GROUP BY` chosen at runtime, `HAVING count >= min_sample` so no benchmark is published from one posting
+- [ ] `getTimeToHire` — `/time-to-hire` — median gap per transition, from the event history; applications still in progress are excluded, not treated as ending today
+
+---
+
 ## Where I am right now
 
 - Schema and seed are **loaded and verified** against PostgreSQL 18.6.
 - All 59 endpoints are routed and respond; an empty query returns no rows, so
   each endpoint currently answers with an empty list or its own 404/409 guard.
-- **SQL written so far: 1 of ~62 query sites.** `listUsers` currently has
-  `SELECT * FROM users`, which ignores all five parameters and returns no
-  `total_count`.
+- **SQL written so far: 1 of 69 query sites.** `listUsers` now applies all five
+  parameters and returns `total_count` via `COUNT(*) OVER ()`. Two things still
+  wrong with it: `ILIKE $2` has no `%` wildcards, so `?q=Ali` finds nothing
+  because it is an exact case-insensitive match rather than a search; and
+  `LIMIT/OFFSET` with no `ORDER BY` means page 2 may repeat or skip rows.
 
-I am working through them roughly in this order: basic reads → optional filters →
-writes with `RETURNING` → joins → aggregation → outer joins that must keep empty
-groups → many-to-many matching → upserts and bulk writes → transactions and row
-locking → window functions → CTEs, time series and percentiles.
+The concept ladder I am climbing: basic reads → optional filters → writes with
+`RETURNING` → joins → aggregation → outer joins that must keep empty groups →
+many-to-many matching → upserts and bulk writes → transactions and row locking →
+window functions → CTEs, time series and percentiles.
+
+**See `## Work order` above for the query-by-query checklist** — 8 stages mapped
+onto that ladder, each one using only concepts from the stages before it.

@@ -35,13 +35,15 @@ type IdParams = { id: string }
 // default list shows the live user base.
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const page = pagination(req.query)
+  const sortOrder = req.query.order === 'desc' ? 'DESC' : 'ASC'
 
   try {
     const result: QueryResult<UserRow & { total_count: string }> = await pool.query<UserRow & { total_count: string }>(
-      `SELECT * FROM users
-      WHERE users.role=$1 AND 
-      (users.name ILIKE $2 OR users.email ILIKE $2)
+      `SELECT users.*, COUNT(*) OVER () AS total_count FROM users
+      WHERE ($1::text IS NULL OR users.role=$1) AND 
+      ($2::text IS NULL OR users.name ILIKE $2 || '%' OR users.email ILIKE $2 || '%')
       AND (users.is_active = true OR $3 = true)
+      ORDER BY users.id ${sortOrder}
       LIMIT $4 OFFSET $5`,
       [queryEnum(req.query.role, USER_ROLES), queryString(req.query.q), queryBool(req.query.include_inactive) ?? false, page.limit, page.offset],
     )
@@ -119,7 +121,9 @@ export async function getUserById(req: Request<IdParams>, res: Response): Promis
 // same address rather than letting both become accounts.
 export async function createUser(req: Request<Record<string, never>, unknown, CreateUserInput>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(`
+      INSERT INTO users(name, email, role, headline, location, years_experience)
+      `, [
       req.body.name,
       req.body.email,
       req.body.role,

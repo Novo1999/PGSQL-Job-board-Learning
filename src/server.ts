@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import morgan from 'morgan';
 import { pool } from './db.js';
 
 import jobsRouter from './routes/jobs.js';
@@ -16,6 +17,19 @@ import skillsRouter from './routes/skills.js';
 import analyticsRouter from './routes/analytics.js';
 
 const app = express();
+
+// HTTP request logging. 'dev' is the short coloured one-liner meant for a
+// terminal; 'combined' is the Apache-style format worth keeping in production
+// logs. Registered before the routers so every request is logged, including
+// ones that fall through to the 404 handler.
+const logFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+
+app.use(
+  morgan(logFormat, {
+    // The health check is polled constantly; logging it drowns out real traffic.
+    skip: (req: Request) => req.url === '/health',
+  })
+);
 
 app.use(express.json());
 
