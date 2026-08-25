@@ -338,8 +338,8 @@ Tick these off as they go green.
 
 `usersController`, the CRUD half. No joins yet.
 
-- [ ] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
-- [ ] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
+- [X] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
+- [X] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
 - [ ] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
 - [ ] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
 - [ ] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)

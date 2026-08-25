@@ -121,16 +121,12 @@ export async function getUserById(req: Request<IdParams>, res: Response): Promis
 // same address rather than letting both become accounts.
 export async function createUser(req: Request<Record<string, never>, unknown, CreateUserInput>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(`
-      INSERT INTO users(name, email, role, headline, location, years_experience)
-      `, [
-      req.body.name,
-      req.body.email,
-      req.body.role,
-      req.body.headline ?? null,
-      req.body.location ?? null,
-      req.body.years_experience ?? null,
-    ])
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(
+      `INSERT INTO users(name, email, role, headline, location, years_experience)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *`,
+      [req.body.name, req.body.email, req.body.role, req.body.headline ?? null, req.body.location ?? null, req.body.years_experience ?? null],
+    )
 
     res.status(201).json(result.rows[0])
   } catch (err: unknown) {
@@ -156,7 +152,11 @@ export async function createUser(req: Request<Record<string, never>, unknown, Cr
 // than a field on the edit form.
 export async function updateUser(req: Request<IdParams, unknown, UpdateUserInput>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(`UPDATE users
+                                                                    SET name = COALESCE($2, name), email = COALESCE($3, email), 
+                                                                    headline = COALESCE($4, headline), location = COALESCE($5, location),
+                                                                    years_experience = COALESCE($6, years_experience) WHERE users.id = $1
+                                                                    RETURNING *`, [
       req.params.id,
       req.body.name ?? null,
       req.body.email ?? null,
