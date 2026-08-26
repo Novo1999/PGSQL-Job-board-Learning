@@ -4,7 +4,7 @@
 
 61 requests across 8 resources. Every description below is the comment written above that handler in `src/controllers/`.
 
-**SQL progress: 3 of 69 query sites written.** Endpoints marked ⬜ still have an empty query template — that is the exercise, not a bug.
+**SQL progress: 0 of 69 query sites written.** Endpoints marked ⬜ still have an empty query template — that is the exercise, not a bug.
 
 ## Contents
 
@@ -291,7 +291,7 @@ Employer-side candidate sourcing. Search the candidate pool by the skills people
 
 > Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error.
 
-### ✅ `GET /api/users` — List Users
+### ⬜ `GET /api/users` — List Users
 
 Handler: `listUsers()`
 
@@ -299,14 +299,15 @@ The admin user list. Everyone on the platform, filterable by role and searchable
 
 | Query parameter | Default | Example |
 | --- | --- | --- |
-| `order` | — | — |
 | `role` | — | — |
 | `q` | — | — |
 | `include_inactive` | `false` | `false` |
 | `page` | `1` | `1` |
 | `limit` | `20` | `20` |
 
-### ✅ `POST /api/users` — Create User
+> Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error.
+
+### ⬜ `POST /api/users` — Create User
 
 Handler: `createUser()`
 
@@ -323,6 +324,8 @@ Register a new user. Email addresses are unique, and two people can try to regis
 }
 ```
 
+> Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error.
+
 ### ⬜ `GET /api/users/:id` — Get User
 
 Handler: `getUserById()`
@@ -331,7 +334,7 @@ A user profile. The person, plus the numbers that describe them: for a candidate
 
 > Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error.
 
-### ✅ `PATCH /api/users/:id` — Update User
+### ⬜ `PATCH /api/users/:id` — Update User
 
 Handler: `updateUser()`
 
@@ -343,6 +346,8 @@ Edit a profile. Only the fields the user submitted change; the rest keep their c
   "location": "Berlin"
 }
 ```
+
+> Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error.
 
 ### ⬜ `DELETE /api/users/:id` — Delete User (hard, cascades)
 

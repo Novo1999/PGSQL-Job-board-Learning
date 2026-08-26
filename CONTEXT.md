@@ -342,8 +342,7 @@ removing your own bookmark — the check belongs in the `WHERE` clause.
 
 ## Work order — all 69 query sites, in the order to write them
 
-69 empty query sites across 7 controllers (`listUsers` is the only one with SQL
-in it so far). They are **not** ordered by file, because no single controller is
+69 empty query sites across 7 controllers, none of them written yet. They are **not** ordered by file, because no single controller is
 uniformly easy — `usersController` alone spans the easiest query in the project
 and three of the hardest. Each stage below only uses concepts from the stages
 above it.
@@ -354,9 +353,9 @@ Tick these off as they go green.
 
 `usersController`, the CRUD half. No joins yet.
 
-- [X] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
-- [X] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
-- [X] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
+- [ ] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
+- [ ] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
+- [ ] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
 - [ ] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
 - [ ] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)
 - [ ] `getUserSkills` — `GET /api/users/:id/skills` — first join; `ORDER BY ... DESC NULLS LAST`
@@ -471,11 +470,11 @@ above.
 - Schema and seed are **loaded and verified** against PostgreSQL 18.6.
 - All 59 endpoints are routed and respond; an empty query returns no rows, so
   each endpoint currently answers with an empty list or its own 404/409 guard.
-- **SQL written so far: 1 of 69 query sites.** `listUsers` now applies all five
-  parameters and returns `total_count` via `COUNT(*) OVER ()`. Two things still
-  wrong with it: `ILIKE $2` has no `%` wildcards, so `?q=Ali` finds nothing
-  because it is an exact case-insensitive match rather than a search; and
-  `LIMIT/OFFSET` with no `ORDER BY` means page 2 may repeat or skip rows.
+- **SQL written so far: 0 of 69 query sites.** Clean slate — start at Stage 1.
+
+`master` is the blank exercise set; work happens on the `learn` branch. Tick the
+boxes above as queries go green, and run `npm run postman` to refresh the ⬜ / ✅
+markers in `docs/API.md`.
 
 The concept ladder I am climbing: basic reads → optional filters → writes with
 `RETURNING` → joins → aggregation → outer joins that must keep empty groups →

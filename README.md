@@ -151,6 +151,16 @@ only uses concepts from the ones before it.
 [docs/API.md](docs/API.md) marks each endpoint ✅ or ⬜ depending on whether its
 query has been written yet.
 
+### Branches
+
+| Branch | What it holds |
+| --- | --- |
+| `master` | The blank exercise set. All 69 query sites empty. Start here. |
+| `learn` | My own working branch, where the answers accumulate as I write them. |
+
+Clone and work on `master` — or branch off it — and leave `learn` alone unless
+you want to compare notes after you have written a query yourself.
+
 ---
 
 ## AI assistants are put in tutor mode

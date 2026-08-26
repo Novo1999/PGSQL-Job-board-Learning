@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Job Board API",
-    "description": "HTTP requests for the SQL/PostgreSQL learning job board.\n\nEvery controller ships with an empty query template — a `pool.query()` with nothing between its backticks. Writing that SQL is the exercise. Until a query is written its endpoint returns an empty result or the controller's own guard (404 / 409), never a crash, so requests can be checked one at a time as the queries land.\n\nQuery sites written so far: **3 of 69**.\n\nDisabled query parameters are the optional filters — enable the ones to test. Enabled ones carry the default the controller applies.\n\nGenerated from the source by `npm run postman`. Edit the code, not this file.",
+    "description": "HTTP requests for the SQL/PostgreSQL learning job board.\n\nEvery controller ships with an empty query template — a `pool.query()` with nothing between its backticks. Writing that SQL is the exercise. Until a query is written its endpoint returns an empty result or the controller's own guard (404 / 409), never a crash, so requests can be checked one at a time as the queries land.\n\nQuery sites written so far: **0 of 69**.\n\nDisabled query parameters are the optional filters — enable the ones to test. Enabled ones carry the default the controller applies.\n\nGenerated from the source by `npm run postman`. Edit the code, not this file.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -710,7 +710,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/users?order=&role=&q=&include_inactive=false&page=1&limit=20",
+              "raw": "{{baseUrl}}/api/users?role=&q=&include_inactive=false&page=1&limit=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -719,11 +719,6 @@
                 "users"
               ],
               "query": [
-                {
-                  "key": "order",
-                  "value": "",
-                  "disabled": true
-                },
                 {
                   "key": "role",
                   "value": "",
@@ -751,7 +746,7 @@
                 }
               ]
             },
-            "description": "`GET /api/users`\n\nThe admin user list. Everyone on the platform, filterable by role and searchable by name or email, always paginated. Deactivated accounts are hidden unless asked for, so the default list shows the live user base."
+            "description": "`GET /api/users`\n\nThe admin user list. Everyone on the platform, filterable by role and searchable by name or email, always paginated. Deactivated accounts are hidden unless asked for, so the default list shows the live user base.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -783,7 +778,7 @@
                 }
               }
             },
-            "description": "`POST /api/users`\n\nRegister a new user. Email addresses are unique, and two people can try to register the same one at the same moment. Treat \"Alice@example.com\" and \"alice@example.com\" as the same address rather than letting both become accounts."
+            "description": "`POST /api/users`\n\nRegister a new user. Email addresses are unique, and two people can try to register the same one at the same moment. Treat \"Alice@example.com\" and \"alice@example.com\" as the same address rather than letting both become accounts.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -835,7 +830,7 @@
                 }
               }
             },
-            "description": "`PATCH /api/users/:id`\n\nEdit a profile. Only the fields the user submitted change; the rest keep their current values. Changing an email can still collide with someone else's. Role is deliberately not editable here — turning a candidate into an employer would strand their applications, so it would be a deliberate migration rather than a field on the edit form."
+            "description": "`PATCH /api/users/:id`\n\nEdit a profile. Only the fields the user submitted change; the rest keep their current values. Changing an email can still collide with someone else's. Role is deliberately not editable here — turning a candidate into an employer would strand their applications, so it would be a deliberate migration rather than a field on the edit form.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {

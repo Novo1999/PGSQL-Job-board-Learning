@@ -10,20 +10,30 @@ import type { Request, Response } from 'express';
 import type { QueryResult } from 'pg';
 import { pool } from '../db.js';
 import {
-    USER_ROLES,
-    type CandidateApplicationRow,
-    type CandidateDashboardRow,
-    type CandidateMatchRow,
-    type CreateUserInput,
-    type RecommendedJobRow,
-    type SetUserSkillsInput,
-    type UpdateUserInput,
-    type UserRow,
-    type UserSkillDetailRow,
+  handleDbError,
+  isUniqueViolation,
+  pagination,
+  paginated,
+  queryBool,
+  queryEnum,
+  queryIdList,
+  queryInt,
+  queryString,
+} from '../utils/http.js';
+import {
+  USER_ROLES,
+  type CandidateApplicationRow,
+  type CandidateDashboardRow,
+  type CandidateMatchRow,
+  type CreateUserInput,
+  type RecommendedJobRow,
+  type SetUserSkillsInput,
+  type UpdateUserInput,
+  type UserRow,
+  type UserSkillDetailRow,
 } from '../types/database.js';
-import { handleDbError, isUniqueViolation, paginated, pagination, queryBool, queryEnum, queryIdList, queryInt, queryString } from '../utils/http.js';
 
-type IdParams = { id: string }
+type IdParams = { id: string };
 
 // ----------------------------------------------------------------------------
 // GET /api/users
@@ -34,23 +44,22 @@ type IdParams = { id: string }
 // always paginated. Deactivated accounts are hidden unless asked for, so the
 // default list shows the live user base.
 export async function listUsers(req: Request, res: Response): Promise<void> {
-  const page = pagination(req.query)
-  const sortOrder = req.query.order === 'desc' ? 'DESC' : 'ASC'
+  const page = pagination(req.query);
 
   try {
-    const result: QueryResult<UserRow & { total_count: string }> = await pool.query<UserRow & { total_count: string }>(
-      `SELECT users.*, COUNT(*) OVER () AS total_count FROM users
-      WHERE ($1::text IS NULL OR users.role=$1) AND 
-      ($2::text IS NULL OR users.name ILIKE $2 || '%' OR users.email ILIKE $2 || '%')
-      AND (users.is_active = true OR $3 = true)
-      ORDER BY users.id ${sortOrder}
-      LIMIT $4 OFFSET $5`,
-      [queryEnum(req.query.role, USER_ROLES), queryString(req.query.q), queryBool(req.query.include_inactive) ?? false, page.limit, page.offset],
-    )
+    const result: QueryResult<UserRow & { total_count: string }> = await pool.query<
+      UserRow & { total_count: string }
+    >(``, [
+      queryEnum(req.query.role, USER_ROLES),
+      queryString(req.query.q),
+      queryBool(req.query.include_inactive) ?? false,
+      page.limit,
+      page.offset,
+    ]);
 
-    res.json(paginated(result.rows, page))
+    res.json(paginated(result.rows, page));
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to list users', 'Failed to fetch users')
+    handleDbError(err, res, 'Failed to list users', 'Failed to fetch users');
   }
 }
 
@@ -70,7 +79,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
 // Each result names which of the searched-for skills that candidate actually
 // has, and the strongest matches come first.
 export async function searchCandidates(req: Request, res: Response): Promise<void> {
-  const page = pagination(req.query)
+  const page = pagination(req.query);
 
   try {
     const result: QueryResult<CandidateMatchRow> = await pool.query<CandidateMatchRow>(``, [
@@ -80,11 +89,11 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
       queryString(req.query.location),
       page.limit,
       page.offset,
-    ])
+    ]);
 
-    res.json(paginated(result.rows, page))
+    res.json(paginated(result.rows, page));
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to search candidates', 'Failed to search candidates')
+    handleDbError(err, res, 'Failed to search candidates', 'Failed to search candidates');
   }
 }
 
@@ -98,16 +107,18 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
 // they own.
 export async function getUserById(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow & { application_count: string; saved_jobs_count: string; companies_count: string }> = await pool.query(``, [req.params.id])
+    const result: QueryResult<
+      UserRow & { application_count: string; saved_jobs_count: string; companies_count: string }
+    > = await pool.query(``, [req.params.id]);
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' })
-      return
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    res.json(result.rows[0])
+    res.json(result.rows[0]);
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to get user', 'Failed to fetch user')
+    handleDbError(err, res, 'Failed to get user', 'Failed to fetch user');
   }
 }
 
@@ -119,23 +130,28 @@ export async function getUserById(req: Request<IdParams>, res: Response): Promis
 // Email addresses are unique, and two people can try to register the same one
 // at the same moment. Treat "Alice@example.com" and "alice@example.com" as the
 // same address rather than letting both become accounts.
-export async function createUser(req: Request<Record<string, never>, unknown, CreateUserInput>, res: Response): Promise<void> {
+export async function createUser(
+  req: Request<Record<string, never>, unknown, CreateUserInput>,
+  res: Response
+): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(
-      `INSERT INTO users(name, email, role, headline, location, years_experience)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *`,
-      [req.body.name, req.body.email, req.body.role, req.body.headline ?? null, req.body.location ?? null, req.body.years_experience ?? null],
-    )
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [
+      req.body.name,
+      req.body.email,
+      req.body.role,
+      req.body.headline ?? null,
+      req.body.location ?? null,
+      req.body.years_experience ?? null,
+    ]);
 
-    res.status(201).json(result.rows[0])
+    res.status(201).json(result.rows[0]);
   } catch (err: unknown) {
     if (isUniqueViolation(err)) {
-      res.status(409).json({ error: 'A user with that email already exists' })
-      return
+      res.status(409).json({ error: 'A user with that email already exists' });
+      return;
     }
 
-    handleDbError(err, res, 'Failed to create user', 'Failed to create user')
+    handleDbError(err, res, 'Failed to create user', 'Failed to create user');
   }
 }
 
@@ -150,34 +166,33 @@ export async function createUser(req: Request<Record<string, never>, unknown, Cr
 // Role is deliberately not editable here — turning a candidate into an employer
 // would strand their applications, so it would be a deliberate migration rather
 // than a field on the edit form.
-export async function updateUser(req: Request<IdParams, unknown, UpdateUserInput>, res: Response): Promise<void> {
+export async function updateUser(
+  req: Request<IdParams, unknown, UpdateUserInput>,
+  res: Response
+): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(`UPDATE users
-                                                                    SET name = COALESCE($2, name), email = COALESCE($3, email), 
-                                                                    headline = COALESCE($4, headline), location = COALESCE($5, location),
-                                                                    years_experience = COALESCE($6, years_experience) WHERE users.id = $1
-                                                                    RETURNING *`, [
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [
       req.params.id,
       req.body.name ?? null,
       req.body.email ?? null,
       req.body.headline ?? null,
       req.body.location ?? null,
       req.body.years_experience ?? null,
-    ])
+    ]);
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' })
-      return
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    res.json(result.rows[0])
+    res.json(result.rows[0]);
   } catch (err: unknown) {
     if (isUniqueViolation(err)) {
-      res.status(409).json({ error: 'A user with that email already exists' })
-      return
+      res.status(409).json({ error: 'A user with that email already exists' });
+      return;
     }
 
-    handleDbError(err, res, 'Failed to update user', 'Failed to update user')
+    handleDbError(err, res, 'Failed to update user', 'Failed to update user');
   }
 }
 
@@ -188,11 +203,13 @@ export async function updateUser(req: Request<IdParams, unknown, UpdateUserInput
 // with no experience recorded go last rather than first.
 export async function getUserSkills(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserSkillDetailRow> = await pool.query<UserSkillDetailRow>(``, [req.params.id])
+    const result: QueryResult<UserSkillDetailRow> = await pool.query<UserSkillDetailRow>(``, [
+      req.params.id,
+    ]);
 
-    res.json(result.rows)
+    res.json(result.rows);
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to get user skills', 'Failed to fetch user skills')
+    handleDbError(err, res, 'Failed to get user skills', 'Failed to fetch user skills');
   }
 }
 
@@ -207,34 +224,39 @@ export async function getUserSkills(req: Request<IdParams>, res: Response): Prom
 //
 // As with a job's requirements, the replacement has to succeed or fail as a
 // whole.
-export async function setUserSkills(req: Request<IdParams, unknown, SetUserSkillsInput>, res: Response): Promise<void> {
-  const skills = Array.isArray(req.body?.skills) ? req.body.skills : []
-  const skillIds = skills.map((skill) => skill.skill_id)
-  const years = skills.map((skill) => skill.years_experience ?? null)
+export async function setUserSkills(
+  req: Request<IdParams, unknown, SetUserSkillsInput>,
+  res: Response
+): Promise<void> {
+  const skills = Array.isArray(req.body?.skills) ? req.body.skills : [];
+  const skillIds = skills.map((skill) => skill.skill_id);
+  const years = skills.map((skill) => skill.years_experience ?? null);
 
-  const client = await pool.connect()
+  const client = await pool.connect();
 
   try {
-    await client.query('BEGIN')
+    await client.query('BEGIN');
 
     // Remove the skills that are no longer listed.
-    await client.query(``, [req.params.id, skillIds])
+    await client.query(``, [req.params.id, skillIds]);
 
     // Add or update the submitted list.
     if (skillIds.length > 0) {
-      await client.query(``, [req.params.id, skillIds, years])
+      await client.query(``, [req.params.id, skillIds, years]);
     }
 
     // Read back the final list to return it.
-    const result: QueryResult<UserSkillDetailRow> = await client.query<UserSkillDetailRow>(``, [req.params.id])
+    const result: QueryResult<UserSkillDetailRow> = await client.query<UserSkillDetailRow>(``, [
+      req.params.id,
+    ]);
 
-    await client.query('COMMIT')
-    res.json(result.rows)
+    await client.query('COMMIT');
+    res.json(result.rows);
   } catch (err: unknown) {
-    await client.query('ROLLBACK')
-    handleDbError(err, res, 'Failed to set user skills', 'Failed to update user skills')
+    await client.query('ROLLBACK');
+    handleDbError(err, res, 'Failed to set user skills', 'Failed to update user skills');
   } finally {
-    client.release()
+    client.release();
   }
 }
 
@@ -251,20 +273,23 @@ export async function setUserSkills(req: Request<IdParams, unknown, SetUserSkill
 // who applied to a job before it expired needs to see it, so return the
 // posting's status and let the screen label it.
 export async function listUserApplications(req: Request<IdParams>, res: Response): Promise<void> {
-  const page = pagination(req.query)
+  const page = pagination(req.query);
 
   try {
-    const result: QueryResult<CandidateApplicationRow> = await pool.query<CandidateApplicationRow>(``, [
-      req.params.id,
-      queryString(req.query.status),
-      queryBool(req.query.active_only) ?? false,
-      page.limit,
-      page.offset,
-    ])
+    const result: QueryResult<CandidateApplicationRow> = await pool.query<CandidateApplicationRow>(
+      ``,
+      [
+        req.params.id,
+        queryString(req.query.status),
+        queryBool(req.query.active_only) ?? false,
+        page.limit,
+        page.offset,
+      ]
+    );
 
-    res.json(paginated(result.rows, page))
+    res.json(paginated(result.rows, page));
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to list user applications', 'Failed to fetch applications')
+    handleDbError(err, res, 'Failed to list user applications', 'Failed to fetch applications');
   }
 }
 
@@ -280,11 +305,13 @@ export async function listUserApplications(req: Request<IdParams>, res: Response
 // an empty response.
 export async function getUserDashboard(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<CandidateDashboardRow> = await pool.query<CandidateDashboardRow>(``, [req.params.id])
+    const result: QueryResult<CandidateDashboardRow> = await pool.query<CandidateDashboardRow>(``, [
+      req.params.id,
+    ]);
 
-    res.json(result.rows[0] ?? null)
+    res.json(result.rows[0] ?? null);
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to get user dashboard', 'Failed to fetch dashboard')
+    handleDbError(err, res, 'Failed to get user dashboard', 'Failed to fetch dashboard');
   }
 }
 
@@ -302,11 +329,15 @@ export async function getUserDashboard(req: Request<IdParams>, res: Response): P
 // she should see, and make sure that is what she gets.
 export async function getRecommendedJobs(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<RecommendedJobRow> = await pool.query<RecommendedJobRow>(``, [req.params.id, queryInt(req.query.limit) ?? 10, queryBool(req.query.local_only) ?? false])
+    const result: QueryResult<RecommendedJobRow> = await pool.query<RecommendedJobRow>(``, [
+      req.params.id,
+      queryInt(req.query.limit) ?? 10,
+      queryBool(req.query.local_only) ?? false,
+    ]);
 
-    res.json(result.rows)
+    res.json(result.rows);
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to get recommended jobs', 'Failed to fetch recommendations')
+    handleDbError(err, res, 'Failed to get recommended jobs', 'Failed to fetch recommendations');
   }
 }
 
@@ -321,16 +352,16 @@ export async function getRecommendedJobs(req: Request<IdParams>, res: Response):
 // changes nothing.
 export async function deactivateUser(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [req.params.id])
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [req.params.id]);
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' })
-      return
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    res.json(result.rows[0])
+    res.json(result.rows[0]);
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to deactivate user', 'Failed to deactivate user')
+    handleDbError(err, res, 'Failed to deactivate user', 'Failed to deactivate user');
   }
 }
 
@@ -346,15 +377,17 @@ export async function deactivateUser(req: Request<IdParams>, res: Response): Pro
 // and views, and count the other tables before and after.
 export async function deleteUser(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<Pick<UserRow, 'id'>> = await pool.query<Pick<UserRow, 'id'>>(``, [req.params.id])
+    const result: QueryResult<Pick<UserRow, 'id'>> = await pool.query<Pick<UserRow, 'id'>>(``, [
+      req.params.id,
+    ]);
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' })
-      return
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    res.json({ id: result.rows[0]?.id, deleted: true })
+    res.json({ id: result.rows[0]?.id, deleted: true });
   } catch (err: unknown) {
-    handleDbError(err, res, 'Failed to delete user', 'Failed to delete user')
+    handleDbError(err, res, 'Failed to delete user', 'Failed to delete user');
   }
 }
