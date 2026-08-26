@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Job Board API",
-    "description": "Requests for the SQL/PostgreSQL learning job board API.\n\nEvery controller ships with an empty pool.query(``) — the SQL is the exercise. Until a query is written, its endpoint returns an empty result or the controller's own guard (404 / 409), not an error. Use these requests to check each query as you write it.\n\nDisabled query parameters are the optional filters; enable the ones you want to test.",
+    "description": "HTTP requests for the SQL/PostgreSQL learning job board.\n\nEvery controller ships with an empty query template — a `pool.query()` with nothing between its backticks. Writing that SQL is the exercise. Until a query is written its endpoint returns an empty result or the controller's own guard (404 / 409), never a crash, so requests can be checked one at a time as the queries land.\n\nQuery sites written so far: **3 of 69**.\n\nDisabled query parameters are the optional filters — enable the ones to test. Enabled ones carry the default the controller applies.\n\nGenerated from the source by `npm run postman`. Edit the code, not this file.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -47,7 +47,8 @@
               "path": [
                 "health"
               ]
-            }
+            },
+            "description": "`GET /health`\n\nLiveness probe. Runs `SELECT 1` against the pool, so a 200 means the API is up **and** PostgreSQL is reachable. Answers `{\"status\":\"ok\",\"db\":\"connected\"}`. Start here when something else returns a 500."
           }
         }
       ]
@@ -55,6 +56,114 @@
     {
       "name": "Jobs",
       "item": [
+        {
+          "name": "Trending Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/trending?days=7&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "trending"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`GET /api/jobs/trending`\n\n\"Trending this week\" on the homepage. Rank live postings by how many times they were viewed in the last few days, and show whether that attention is rising or falling compared with the same stretch of time before it. Postings nobody has looked at recently are left out entirely.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Expiring Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/expiring?days=7&company_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "expiring"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7",
+                  "disabled": false
+                },
+                {
+                  "key": "company_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /api/jobs/expiring`\n\n\"Your postings are about to expire.\" Warn an employer about open postings that will expire within the next few days, soonest first, so they can renew them before they quietly disappear from the board. Show how many days each one has left and how many applications it has collected. Postings that have already expired are a different problem and are not included. Works for a single company, or across the whole platform for an admin view.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Employer Job Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/manage?company_id={{companyId}}&status=&include_archived=false&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "manage"
+              ],
+              "query": [
+                {
+                  "key": "company_id",
+                  "value": "{{companyId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "include_archived",
+                  "value": "false",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`GET /api/jobs/manage`\n\nThe employer's posting dashboard. Every posting belonging to a company, including drafts, closed and expired ones, with the numbers the employer cares about: total applications, how many are still waiting for a first review, and total views. Archived postings are hidden unless explicitly asked for. This is the mirror image of the public board: same postings, opposite visibility rules.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
         {
           "name": "Browse Jobs (public board)",
           "request": {
@@ -136,112 +245,40 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/jobs`\n\nThe public job board. Candidates browse live postings and narrow them down with a search box and a set of filters: keyword, location, remote-only, employment type, experience level, salary range, required skills, company, and how recently the job was posted. Every filter is optional and they combine. Results are paginated and can be sorted by newest, oldest, highest salary, lowest salary, or best match for the search term. Each result shows the company name and how many people have already applied, and the response includes the total number of matches so the client can page through them. Some postings have no salary listed. Decide what should happen to those when a candidate filters by salary.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
-          "name": "Trending Jobs",
+          "name": "Create Job (draft)",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/api/jobs/trending?days=7&limit=10",
+              "raw": "{{baseUrl}}/api/jobs",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "jobs",
-                "trending"
-              ],
-              "query": [
-                {
-                  "key": "days",
-                  "value": "7",
-                  "disabled": false
-                },
-                {
-                  "key": "limit",
-                  "value": "10",
-                  "disabled": false
-                }
+                "jobs"
               ]
-            }
-          }
-        },
-        {
-          "name": "Expiring Jobs",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/expiring?days=7&company_id=",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "expiring"
-              ],
-              "query": [
-                {
-                  "key": "days",
-                  "value": "7",
-                  "disabled": false
-                },
-                {
-                  "key": "company_id",
-                  "value": "",
-                  "disabled": true
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_id\": \"{{companyId}}\",\n  \"title\": \"Staff Backend Engineer\",\n  \"description\": \"Own the data model.\",\n  \"salary_min\": 150000,\n  \"salary_max\": 190000,\n  \"location\": \"Remote\",\n  \"is_remote\": true,\n  \"employment_type\": \"full_time\",\n  \"experience_level\": \"lead\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Employer Job Dashboard",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/manage?company_id={{companyId}}&status=&include_archived=false&page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "manage"
-              ],
-              "query": [
-                {
-                  "key": "company_id",
-                  "value": "{{companyId}}",
-                  "disabled": false
-                },
-                {
-                  "key": "status",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "include_archived",
-                  "value": "false",
-                  "disabled": false
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "disabled": false
-                },
-                {
-                  "key": "limit",
-                  "value": "20",
-                  "disabled": false
-                }
-              ]
-            }
+              }
+            },
+            "description": "`POST /api/jobs`\n\nCreate a posting as a draft. An employer writes a posting over several sittings, so creating one must never publish it. It starts as a draft, invisible to candidates, until they explicitly publish it. The client cannot choose the status. Fields the employer leaves out should fall back to the database's defaults rather than being set here. A nonsensical salary range should be rejected.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -259,7 +296,93 @@
                 "jobs",
                 "{{jobId}}"
               ]
-            }
+            },
+            "description": "`GET /api/jobs/:id`\n\nThe job detail page. One posting with everything needed to render it: the job itself, the company it belongs to, how many people have applied, and how many have bookmarked it. This endpoint serves both candidates and employers, so it returns a posting whatever its status and lets the caller decide what to do with it. An id that does not exist is a 404.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{jobId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Backend Engineer (updated)\",\n  \"salary_max\": 175000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /api/jobs/:id`\n\nEdit a posting. The edit form sends only the fields that changed. Everything the employer did not send keeps the value it already had. Archived postings are read-only and the edit should be refused rather than silently applied.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Archive Job (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}?hard=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{jobId}}"
+              ],
+              "query": [
+                {
+                  "key": "hard",
+                  "value": "false",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`DELETE /api/jobs/:id`\n\nRemove a posting, in one of two ways. By default it is archived: the posting is hidden but the row stays, so the applications, history and view records attached to it survive. This is what a real product does, because a true delete would erase people's application records along with the posting. With ?hard=true the row is deleted outright, and everything that depends on it goes too. Worth trying once against the seed data to see how far that reaches.\n\n_Exercise: the 2 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Delete Job (hard, cascades)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}?hard=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{jobId}}"
+              ],
+              "query": [
+                {
+                  "key": "hard",
+                  "value": "true",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`DELETE /api/jobs/:id`\n\nRemove a posting, in one of two ways. By default it is archived: the posting is hidden but the row stays, so the applications, history and view records attached to it survive. This is what a real product does, because a true delete would erase people's application records along with the posting. With ?hard=true the row is deleted outright, and everything that depends on it goes too. Worth trying once against the seed data to see how far that reaches.\n\n_Exercise: the 2 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -285,7 +408,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/jobs/:id/similar`\n\n\"Similar jobs\" at the bottom of the detail page. Given one posting, suggest other live postings a candidate might also want, based on how many skills the two have in common. The more skills they share, the higher it ranks. Never suggest the posting itself, and a posting with no skills listed should not match everything on the board.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -304,7 +428,42 @@
                 "{{jobId}}",
                 "skills"
               ]
-            }
+            },
+            "description": "`GET /api/jobs/:id/skills`\n\nThe \"Requirements\" block on the detail page. List the skills a posting asks for, by name, with the required ones before the nice-to-haves.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Set Job Skills",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{jobId}}",
+                "skills"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\n    {\n      \"skill_id\": \"1\",\n      \"is_required\": true\n    },\n    {\n      \"skill_id\": \"2\",\n      \"is_required\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PUT /api/jobs/:id/skills`\n\nEditing the requirements list. The employer submits the complete list of skills for the posting, and it replaces whatever was there before: skills they removed disappear, new ones are added, and a skill whose required/nice-to-have flag changed is updated. Submitting an empty list clears the requirements. The whole replacement has to succeed or fail as one unit — the posting must never be left with half its old requirements and half its new ones.\n\n_Exercise: the 3 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -350,7 +509,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/jobs/:id/applications`\n\nThe employer's applicant list for one posting. Everyone who applied, with enough of their profile to triage them, filterable by pipeline stage and sortable by date or by how well they match the job. \"How well they match\" means how many of the posting's required skills the candidate actually has, out of how many it asks for. The posting's status does not matter here — a closed posting still has applicants to review. Candidates who withdrew are hidden by default but can be shown with the status filter.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -381,103 +541,8 @@
                   "disabled": false
                 }
               ]
-            }
-          }
-        },
-        {
-          "name": "Create Job (draft)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs"
-              ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"company_id\": \"{{companyId}}\",\n  \"title\": \"Staff Backend Engineer\",\n  \"description\": \"Own the data model.\",\n  \"salary_min\": 150000,\n  \"salary_max\": 190000,\n  \"location\": \"Remote\",\n  \"is_remote\": true,\n  \"employment_type\": \"full_time\",\n  \"experience_level\": \"lead\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Update Job",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/{{jobId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "{{jobId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Senior Backend Engineer (updated)\",\n  \"salary_max\": 175000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Set Job Skills",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/{{jobId}}/skills",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "{{jobId}}",
-                "skills"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"skills\": [\n    {\n      \"skill_id\": \"1\",\n      \"is_required\": true\n    },\n    {\n      \"skill_id\": \"2\",\n      \"is_required\": false\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "description": "`GET /api/jobs/:id/views`\n\nThe \"views over time\" chart on the employer's posting page. How often the posting was opened, grouped by day, week or month over a chosen stretch of history, split into logged-in and anonymous traffic. Quiet days still belong on the chart as zeros. If a day with no views is simply missing from the response, the chart will draw a straight line from the last busy day to the next one and show activity that never happened.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -510,7 +575,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`POST /api/jobs/:id/view`\n\nRecord that someone opened the posting. Two things happen: the view is added to the posting's view history, and the posting's running view total goes up by one. Both must happen together, or the total and the history will disagree from then on. Only live postings accept views. The visitor may be logged out, in which case the view is recorded without a user. Returns the new total so the page can update without reloading.\n\n_Exercise: the 2 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -543,7 +609,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`POST /api/jobs/:id/publish`\n\nTake a posting live. The posting becomes open to candidates and gets an expiry date a chosen number of days out, or no expiry at all if the employer wants it to run indefinitely. Only a draft or a previously closed posting can be published. Publishing one that is already open should do nothing. Re-opening a closed posting keeps its original publication date, so it does not jump back to the top of the board as if it were new.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -576,50 +643,8 @@
                   "language": "json"
                 }
               }
-            }
-          }
-        },
-        {
-          "name": "Archive Job (soft delete)",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/{{jobId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "{{jobId}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Delete Job (hard, cascades)",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/jobs/{{jobId}}?hard=true",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "jobs",
-                "{{jobId}}"
-              ],
-              "query": [
-                {
-                  "key": "hard",
-                  "value": "true",
-                  "disabled": false
-                }
-              ]
-            }
+            },
+            "description": "`POST /api/jobs/:id/close`\n\nStop accepting applications. The role is filled, or the employer is done. The posting leaves the public board but keeps all of its applications and history. Only an open posting can be closed. Closing is not the same as rejecting: candidates part-way through the process stay exactly where they are.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]
@@ -627,50 +652,6 @@
     {
       "name": "Users",
       "item": [
-        {
-          "name": "List Users",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/users?role=&q=&include_inactive=false&page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users"
-              ],
-              "query": [
-                {
-                  "key": "role",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "q",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "include_inactive",
-                  "value": "false",
-                  "disabled": false
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "disabled": false
-                },
-                {
-                  "key": "limit",
-                  "value": "20",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        },
         {
           "name": "Search Candidates by Skill",
           "request": {
@@ -719,7 +700,90 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/users/candidates/search`\n\nEmployer-side candidate sourcing. Search the candidate pool by the skills people list on their profile, so a recruiter can approach someone who never applied. Only active candidates appear. Two ways to match, and the difference matters: find candidates who have ANY of the chosen skills, or only those who have ALL of them. Optionally narrow further by minimum years of experience and by location. Each result names which of the searched-for skills that candidate actually has, and the strongest matches come first.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users?order=&role=&q=&include_inactive=false&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "order",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "include_inactive",
+                  "value": "false",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`GET /api/users`\n\nThe admin user list. Everyone on the platform, filterable by role and searchable by name or email, always paginated. Deactivated accounts are hidden unless asked for, so the default list shows the live user base."
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ivy Chen\",\n  \"email\": \"ivy@example.com\",\n  \"role\": \"candidate\",\n  \"headline\": \"Backend engineer\",\n  \"location\": \"Remote\",\n  \"years_experience\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /api/users`\n\nRegister a new user. Email addresses are unique, and two people can try to register the same one at the same moment. Treat \"Alice@example.com\" and \"alice@example.com\" as the same address rather than letting both become accounts."
           }
         },
         {
@@ -737,7 +801,94 @@
                 "users",
                 "{{userId}}"
               ]
-            }
+            },
+            "description": "`GET /api/users/:id`\n\nA user profile. The person, plus the numbers that describe them: for a candidate, how many applications and saved jobs they have; for an employer, how many companies they own.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"headline\": \"Senior backend engineer\",\n  \"location\": \"Berlin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /api/users/:id`\n\nEdit a profile. Only the fields the user submitted change; the rest keep their current values. Changing an email can still collide with someone else's. Role is deliberately not editable here — turning a candidate into an employer would strand their applications, so it would be a deliberate migration rather than a field on the edit form."
+          }
+        },
+        {
+          "name": "Delete User (hard, cascades)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "`DELETE /api/users/:id`\n\nErase an account permanently, as opposed to deactivating it. Their applications, skills and bookmarks go with them. Their view history and any companies they own do not — those survive, just without a person attached. Try this on Frank, who owns two companies, and on Alice, who has applications and views, and count the other tables before and after.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}/deactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}",
+                "deactivate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /api/users/:id/deactivate`\n\nDeactivate an account. The user disappears from listings and searches, but nothing is deleted — their applications stay attached to the jobs they applied to, so employers keep a coherent history. Deactivating an already-inactive account is fine and changes nothing.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -756,7 +907,42 @@
                 "{{userId}}",
                 "skills"
               ]
-            }
+            },
+            "description": "`GET /api/users/:id/skills`\n\nThe skills section of a candidate's profile, most experienced first. Skills with no experience recorded go last rather than first.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Set User Skills",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}/skills",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}",
+                "skills"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skills\": [\n    {\n      \"skill_id\": \"1\",\n      \"years_experience\": 6\n    },\n    {\n      \"skill_id\": \"2\",\n      \"years_experience\": 3\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PUT /api/users/:id/skills`\n\nReplace a candidate's skill list. The candidate submits their complete list and it replaces what was there before, along with how many years of experience they claim for each one. Employers do not have skills and should be refused. As with a job's requirements, the replacement has to succeed or fail as a whole.\n\n_Exercise: the 3 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -797,7 +983,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/users/:id/applications`\n\n\"My applications\" — the candidate's own tracking screen. Every job they applied to, with the company name and where each application currently stands, newest first. Can be narrowed to one stage, or to only the applications still in play. Applications to postings that are no longer live still belong here. Someone who applied to a job before it expired needs to see it, so return the posting's status and let the screen label it.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -816,7 +1003,8 @@
                 "{{userId}}",
                 "dashboard"
               ]
-            }
+            },
+            "description": "`GET /api/users/:id/dashboard`\n\nThe counters across the top of the candidate's home screen: total applications, how many are still active, interviews, offers, rejections, and saved jobs. Six numbers, but the screen should not need six separate trips to the database to draw them. A candidate who has done nothing yet gets zeros, not an empty response.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -847,154 +1035,8 @@
                   "disabled": false
                 }
               ]
-            }
-          }
-        },
-        {
-          "name": "Create User",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users"
-              ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Ivy Chen\",\n  \"email\": \"ivy@example.com\",\n  \"role\": \"candidate\",\n  \"headline\": \"Backend engineer\",\n  \"location\": \"Remote\",\n  \"years_experience\": 5\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Update User",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{userId}}"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"headline\": \"Senior backend engineer\",\n  \"location\": \"Berlin\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Set User Skills",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}/skills",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{userId}}",
-                "skills"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"skills\": [\n    {\n      \"skill_id\": \"1\",\n      \"years_experience\": 6\n    },\n    {\n      \"skill_id\": \"2\",\n      \"years_experience\": 3\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Deactivate User",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}/deactivate",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{userId}}",
-                "deactivate"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete User (hard, cascades)",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{userId}}"
-              ]
-            }
+            "description": "`GET /api/users/:id/recommended-jobs`\n\n\"Jobs picked for you.\" Score live postings against the skills on a candidate's profile and return the best matches, with a match percentage. Jobs they have already applied to are left out, and so are jobs that match none of their skills. Optionally restrict to remote postings or ones near where they live. Note that Emma in the seed data has no skills recorded at all. Decide what she should see, and make sure that is what she gets.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]
@@ -1035,7 +1077,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/users/:userId/saved-jobs`\n\nThe candidate's bookmark list, most recently saved first. Each bookmark shows enough of the posting to render a card, plus the two things that make the list useful: whether the posting is still live, and whether the candidate has already applied to it. There is also a shortcut view for the bookmarks that are still live and not yet applied to — the candidate's actual to-do list. A bookmark outlives the posting it points at. When a posting expires or closes, the bookmark stays and is marked as no longer live. Hiding it would look to the candidate like the site lost it.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1068,7 +1111,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`POST /api/users/:userId/saved-jobs`\n\nBookmark a posting. Tapping \"save\" twice must leave exactly one bookmark and succeed both times — the second tap is not an error, the job is simply already saved. Only live postings can be bookmarked.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1088,7 +1132,8 @@
                 "saved-jobs",
                 "{{jobId}}"
               ]
-            }
+            },
+            "description": "`DELETE /api/users/:userId/saved-jobs/:jobId`\n\nRemove a bookmark. Removing one that was never there is a success, not a failure: the candidate asked for this job not to be bookmarked, and afterwards it is not. A candidate can only remove their own bookmarks.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]
@@ -1096,6 +1141,42 @@
     {
       "name": "Companies",
       "item": [
+        {
+          "name": "Top Hiring Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/top?days=30&min_applications=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "top"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "disabled": false
+                },
+                {
+                  "key": "min_applications",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`GET /api/companies/top`\n\n\"Most active employers\" for the homepage. Rank companies by recent hiring activity: live postings, applications received in the last N days, and how many people they actually hired. Only count recent applications, so a company that was busy a year ago does not sit at the top forever, and leave out companies below a minimum level of activity.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
         {
           "name": "List Companies",
           "request": {
@@ -1137,42 +1218,40 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/companies`\n\nThe company directory. A browsable list of employers showing how many live postings each one has, searchable by name and filterable by industry. A company that is not hiring right now still belongs in the directory, with a count of zero — dropping it would make the platform look emptier than it is. There is also a \"hiring now\" view that shows only companies with something live.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
-          "name": "Top Hiring Companies",
+          "name": "Create Company",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/api/companies/top?days=30&min_applications=1&limit=10",
+              "raw": "{{baseUrl}}/api/companies",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "companies",
-                "top"
-              ],
-              "query": [
-                {
-                  "key": "days",
-                  "value": "30",
-                  "disabled": false
-                },
-                {
-                  "key": "min_applications",
-                  "value": "1",
-                  "disabled": false
-                },
-                {
-                  "key": "limit",
-                  "value": "10",
-                  "disabled": false
-                }
+                "companies"
               ]
-            }
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner_id\": \"6\",\n  \"name\": \"Hooli\",\n  \"description\": \"Definitely not evil.\",\n  \"website\": \"https://hooli.example.com\",\n  \"industry\": \"Software\",\n  \"headquarters\": \"Palo Alto, CA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`POST /api/companies`\n\nRegister a company. An employer creates the company they will post jobs under. The owner has to be a real user with the employer role — a candidate cannot own a company.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1190,7 +1269,67 @@
                 "companies",
                 "{{companyId}}"
               ]
-            }
+            },
+            "description": "`GET /api/companies/:id`\n\nThe company profile page. The company, who owns it, and its headline numbers: live postings, total postings, applications received, and the average salary range it advertises. A company can have no owner, and some of its postings may not list a salary at all. Neither should make the profile disappear or the averages lie.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Update Company",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/{{companyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "{{companyId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated description.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`PATCH /api/companies/:id`\n\nEdit a company profile. Only the submitted fields change. Ownership is not editable here — transferring a company to someone else is a separate, deliberate action, not a field on the edit form.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Delete Company",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/{{companyId}}?force=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "{{companyId}}"
+              ],
+              "query": [
+                {
+                  "key": "force",
+                  "value": "false",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`DELETE /api/companies/:id`\n\nRemove a company. The most destructive thing the API can do: everything hanging off the company goes with it — its postings, their applications, and those applications' histories. Because of that, refuse by default if the company still has live postings. Deleting a company out from under people who are mid-application is not something an API should do quietly. ?force=true overrides it. Before trying this on the seed data, count the rows in the other tables. Delete Initech and count again.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1231,7 +1370,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/companies/:id/jobs`\n\nThe postings on a company profile. Serves two audiences from one endpoint: the public sees only live postings, while the employer looking at their own company sees everything, including drafts and archived ones, and can filter by status.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1257,7 +1397,8 @@
                   "disabled": true
                 }
               ]
-            }
+            },
+            "description": "`GET /api/companies/:id/funnel`\n\nOne company's hiring funnel. How many applications sit at each stage and what share of the total each one represents, either across the whole company or for a single posting so the employer can compare one role against their average. Every stage appears, in pipeline order, including the empty ones.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1283,11 +1424,48 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/companies/:id/salary-bands`\n\n\"How do our own roles compare to each other?\" List a company's postings ranked by pay, and for each one show how far it sits above or below that company's own average. Optionally compare against the whole market instead of just this company. Postings with no salary listed need a sensible place in the ranking — decide where, rather than letting them land at the top by accident.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Application Funnel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/funnel?company_id=&days=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "funnel"
+              ],
+              "query": [
+                {
+                  "key": "company_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "days",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`GET /api/applications/funnel`\n\nThe hiring funnel. How many applications are sitting at each stage right now, and what share of the total each stage represents. Can cover the whole platform, one company, or only applications from the last N days. Every stage must appear, including ones with no applications at all, and they must come back in pipeline order. A funnel that quietly leaves out \"interview: 0\" tells the reader the wrong story.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
-          "name": "Create Company",
+          "name": "Bulk Reject Applications",
           "request": {
             "method": "POST",
             "header": [
@@ -1297,88 +1475,28 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/companies",
+              "raw": "{{baseUrl}}/api/applications/bulk-reject",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
-                "companies"
+                "applications",
+                "bulk-reject"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner_id\": \"6\",\n  \"name\": \"Hooli\",\n  \"description\": \"Definitely not evil.\",\n  \"website\": \"https://hooli.example.com\",\n  \"industry\": \"Software\",\n  \"headquarters\": \"Palo Alto, CA\"\n}",
+              "raw": "{\n  \"application_ids\": [\n    \"1\",\n    \"2\",\n    \"3\"\n  ],\n  \"note\": \"Role has been filled.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            }
-          }
-        },
-        {
-          "name": "Update Company",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/companies/{{companyId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "companies",
-                "{{companyId}}"
-              ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"description\": \"Updated description.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "description": "`POST /api/applications/bulk-reject`\n\n\"Reject all remaining candidates\" once a role is filled. The recruiter selects a set of applications and rejects them in one action, with an optional note that goes on every one of them. Applications that have already been decided are skipped rather than failing the whole batch, so the number actually rejected is often smaller than the number requested — report both. Each rejection is recorded in that application's history like any other stage change. However many applications are selected, this should be one trip to the database, not one per application.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
-        {
-          "name": "Delete Company",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/companies/{{companyId}}?force=false",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "companies",
-                "{{companyId}}"
-              ],
-              "query": [
-                {
-                  "key": "force",
-                  "value": "false",
-                  "disabled": false
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Applications",
-      "item": [
         {
           "name": "List Applications (employer inbox)",
           "request": {
@@ -1435,74 +1553,8 @@
                   "disabled": false
                 }
               ]
-            }
-          }
-        },
-        {
-          "name": "Application Funnel",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/applications/funnel?company_id=&days=",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "applications",
-                "funnel"
-              ],
-              "query": [
-                {
-                  "key": "company_id",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "days",
-                  "value": "",
-                  "disabled": true
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Application",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/applications/{{applicationId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "applications",
-                "{{applicationId}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Application Timeline",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/timeline",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "applications",
-                "{{applicationId}}",
-                "timeline"
-              ]
-            }
+            },
+            "description": "`GET /api/applications`\n\nThe employer's inbox. Every application across all of a company's postings in one list, so a recruiter can work through them without opening each job separately. It can also be narrowed to a single posting. Filterable by pipeline stage, searchable by the candidate's name or email, and — the thing recruiters actually need — able to show only the applications nobody has touched in the last N days. Sortable by newest, oldest, or by pipeline stage. Note that sorting by stage means the order candidates move through the process, not alphabetical order.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1533,7 +1585,66 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`POST /api/applications`\n\nApply to a job. A candidate submits an application, optionally with a cover letter and a link to their CV. The posting must still be live and the applicant must be a candidate, not an employer. Nobody may apply to the same job twice — and remember that the \"Apply\" button gets double-clicked, so two identical requests can arrive milliseconds apart and both must not succeed. A new application starts at the \"pending\" stage, and that first step is recorded in its history straight away.\n\n_Exercise: the 2 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Get Application",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}"
+              ]
+            },
+            "description": "`GET /api/applications/:id`\n\nOne application, fully expanded. Everything needed to review a candidate on a single screen: the application itself, the candidate's profile, the job and company they applied to, and how well their skills line up with what the posting requires.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Delete Application",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}"
+              ]
+            },
+            "description": "`DELETE /api/applications/:id`\n\nErase an application entirely, the way a data-deletion request would. Different from withdrawing: withdrawing keeps the record and its history, this removes both. Real products almost always withdraw instead.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
+        {
+          "name": "Application Timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/timeline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "timeline"
+              ]
+            },
+            "description": "`GET /api/applications/:id/timeline`\n\n\"How long has this been sitting with us?\" The full history of one application, oldest first, and for each step how long it spent at the previous stage. The very first step has nothing before it, so it has no gap to report.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1566,7 +1677,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`PATCH /api/applications/:id/status`\n\nMove a candidate through the pipeline. The employer advances or rejects an application, optionally attaching a note that becomes part of its permanent record. The application's status changes and the move is added to its history, and the history has to record which stage it came from. Once an application has been accepted, rejected or withdrawn it is finished and cannot move again. Setting the stage it is already at should change nothing. Two recruiters can act on the same candidate at the same moment. Make sure that cannot produce two conflicting history entries.\n\n_Exercise: the 3 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1599,57 +1711,8 @@
                   "language": "json"
                 }
               }
-            }
-          }
-        },
-        {
-          "name": "Bulk Reject Applications",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/applications/bulk-reject",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "applications",
-                "bulk-reject"
-              ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"application_ids\": [\n    \"1\",\n    \"2\",\n    \"3\"\n  ],\n  \"note\": \"Role has been filled.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete Application",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/applications/{{applicationId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "applications",
-                "{{applicationId}}"
-              ]
-            }
+            "description": "`POST /api/applications/:id/withdraw`\n\nThe candidate pulls out. Same idea as a status change, but the candidate starts it, and it is allowed from any stage that is not already finished. A candidate may only withdraw their own application — knowing an application id must not be enough to withdraw someone else's.\n\n_Exercise: the 2 queries behind this endpoint are still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]
@@ -1657,6 +1720,37 @@
     {
       "name": "Skills",
       "item": [
+        {
+          "name": "Skill Demand vs Supply",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/skills/demand?used_only=false&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "skills",
+                "demand"
+              ],
+              "query": [
+                {
+                  "key": "used_only",
+                  "value": "false",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "`GET /api/skills/demand`\n\n\"What is the market asking for?\" For every skill: how many live postings ask for it, how many candidates list it, and the gap between the two. A positive gap means employers want more of it than the candidate pool has. Only live postings count towards demand — a skill wanted only by expired postings is not in demand. Skills nobody uses at all can optionally be shown, so you can see what the vocabulary contains that has gone stale.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
+          }
+        },
         {
           "name": "List / Autocomplete Skills",
           "request": {
@@ -1688,37 +1782,8 @@
                   "disabled": false
                 }
               ]
-            }
-          }
-        },
-        {
-          "name": "Skill Demand vs Supply",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/skills/demand?used_only=false&limit=50",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "skills",
-                "demand"
-              ],
-              "query": [
-                {
-                  "key": "used_only",
-                  "value": "false",
-                  "disabled": false
-                },
-                {
-                  "key": "limit",
-                  "value": "50",
-                  "disabled": false
-                }
-              ]
-            }
+            },
+            "description": "`GET /api/skills`\n\nThe skill autocomplete, used by both the job editor and the candidate profile. Matches as the user types, ignoring capitalisation, and can be limited to one category. Skills that START with what they typed should come before ones that merely contain it — someone typing \"post\" wants PostgreSQL first. Always returns a short list; an autocomplete never needs more than a screenful.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1749,7 +1814,8 @@
                   "language": "json"
                 }
               }
-            }
+            },
+            "description": "`POST /api/skills`\n\nAdd a skill to the vocabulary. Called from the autocomplete when someone types a skill that does not exist yet — and two people can type the same new skill at the same moment. \"React\" and \"react\" are the same skill. If the skill already exists, return the existing one rather than failing: the caller wanted a skill to attach something to, and there is one.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1774,7 +1840,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`DELETE /api/skills/:id`\n\nRemove a skill from the vocabulary. Deleting a skill strips it from every posting and every profile that lists it, so refuse by default when it is still in use anywhere. ?force=true removes it everywhere.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]
@@ -1797,7 +1864,8 @@
                 "analytics",
                 "overview"
               ]
-            }
+            },
+            "description": "`GET /api/analytics/overview`\n\nThe admin dashboard header. Every headline number about the platform in one response: users split by role, companies, postings split by live/draft/closed, total applications, applications in the last week, the average number of applications a live posting receives, and how many postings have received none at all. Eleven numbers from five tables, and the dashboard should not need eleven trips to the database to draw them.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1832,7 +1900,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/analytics/salary-benchmarks`\n\n\"What does this kind of role pay?\" — the report candidates come to a job board for. Salary distribution grouped by experience level, employment type or location. Report the middle of the range and the quarter-points, not just the average: one unusually high posting drags an average upwards and misleads everyone reading it. Postings that do not list a salary must be left out of the maths entirely, not counted as zero. Do not publish a benchmark for a group with only one or two postings in it — a \"typical salary\" drawn from a single posting is worse than no number at all.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1867,7 +1936,8 @@
                   "disabled": true
                 }
               ]
-            }
+            },
+            "description": "`GET /api/analytics/applications-over-time`\n\nThe activity chart: applications per day, week or month over a chosen stretch of history, either platform-wide or for one company. Quiet periods must appear as zeros. A chart drawn from data that simply omits the empty days will join the last busy day to the next one and invent activity that never happened.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1897,7 +1967,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/analytics/top-jobs-per-company`\n\nThe most-applied-to postings at EACH company — not the top few overall, so a small employer is not buried under a large one. Every company that has any applications contributes its own best few. Postings with no applications do not appear. Decide what should happen when two postings at the same company are tied.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1927,7 +1998,8 @@
                   "disabled": true
                 }
               ]
-            }
+            },
+            "description": "`GET /api/analytics/conversion`\n\n\"Where do candidates drop out?\" For each stage of the pipeline, how many applications ever reached it, and what share of the previous stage that represents. Optionally scoped to one company or to a recent window of time. The catch: an application's current stage cannot answer this. Someone sitting at \"rejected\" today may well have been interviewed on the way there, so counting current stages undercounts every stage before the last one. The answer is in the application history, which records every stage an application ever reached. Rejection and withdrawal are exits rather than stages, so keep them out of the chain or the percentages stop making sense.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         },
         {
@@ -1957,7 +2029,8 @@
                   "disabled": false
                 }
               ]
-            }
+            },
+            "description": "`GET /api/analytics/time-to-hire`\n\n\"How long does our process actually take?\" For applications that reached a decision, how long each step of the process took — the gap between one stage and the next, summarised across every application, platform-wide or for one company. Report the typical duration rather than the average: a single application that sat untouched for six months would dominate an average and describe nobody's experience. Applications still in progress have no end date and must be left out rather than treated as ending today.\n\n_Exercise: the query behind this endpoint is still empty, so it answers with an empty result rather than an error._"
           }
         }
       ]

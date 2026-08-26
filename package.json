@@ -7,7 +7,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit && tsc -p scripts/tsconfig.json",
+    "postman": "tsx scripts/generate-postman.ts",
+    "postman:check": "tsx scripts/generate-postman.ts --check",
+    "db:schema": "tsx scripts/db.ts schema",
+    "db:seed": "tsx scripts/db.ts seed",
+    "db:reset": "tsx scripts/db.ts schema seed"
   },
   "keywords": [
     "postgresql",
@@ -15,9 +21,22 @@
     "express",
     "node-postgres",
     "job-board",
-    "learning"
+    "learning",
+    "sql-exercises"
   ],
+  "author": "Novo1999",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Novo1999/PGSQL-Job-board-Learning.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Novo1999/PGSQL-Job-board-Learning/issues"
+  },
+  "homepage": "https://github.com/Novo1999/PGSQL-Job-board-Learning#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

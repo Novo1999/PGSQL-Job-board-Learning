@@ -1,5 +1,14 @@
 # Claude Code Prompt — SQL + PostgreSQL Job Board Backend
 
+> **This is the prompt that created this repository**, kept for the record. It
+> is not instructions for working on the project — for that, see
+> [AGENTS.md](../AGENTS.md) and [CONTEXT.md](../CONTEXT.md).
+>
+> It is here because it explains *why* the project is shaped the way it is: no
+> ORM, SQL at the call site, a schema built to make queries interesting rather
+> than to ship a product. It is also a reasonable starting point if you want to
+> generate your own learning project for a different stack.
+
 ## Role
 
 Act as a senior backend engineer helping me build a real project specifically to learn SQL and PostgreSQL deeply.
