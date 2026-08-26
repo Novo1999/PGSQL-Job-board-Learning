@@ -98,7 +98,14 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
 // they own.
 export async function getUserById(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow & { application_count: string; saved_jobs_count: string; companies_count: string }> = await pool.query(``, [req.params.id])
+    const result: QueryResult<UserRow & { application_count: string; saved_jobs_count: string; companies_count: string }> = await pool.query(
+      `SELECT users.*, COUNT(DISTINCT applications.id) AS application_count,
+      COUNT(DISTINCT saved_jobs.job_id) AS saved_jobs_count, 
+      COUNT(DISTINCT companies.id) AS companies_count FROM users
+      LEFT JOIN applications ON applications.user_id=users.id
+      LEFT JOIN companies ON companies.owner_id=users.id
+      LEFT JOIN saved_jobs ON saved_jobs.user_id=users.id
+      WHERE users.id=$1 GROUP BY users.id, users.name`, [req.params.id])
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' })
@@ -152,18 +159,14 @@ export async function createUser(req: Request<Record<string, never>, unknown, Cr
 // than a field on the edit form.
 export async function updateUser(req: Request<IdParams, unknown, UpdateUserInput>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(`UPDATE users
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(
+      `UPDATE users
                                                                     SET name = COALESCE($2, name), email = COALESCE($3, email), 
                                                                     headline = COALESCE($4, headline), location = COALESCE($5, location),
                                                                     years_experience = COALESCE($6, years_experience) WHERE users.id = $1
-                                                                    RETURNING *`, [
-      req.params.id,
-      req.body.name ?? null,
-      req.body.email ?? null,
-      req.body.headline ?? null,
-      req.body.location ?? null,
-      req.body.years_experience ?? null,
-    ])
+                                                                    RETURNING *`,
+      [req.params.id, req.body.name ?? null, req.body.email ?? null, req.body.headline ?? null, req.body.location ?? null, req.body.years_experience ?? null],
+    )
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' })
@@ -188,7 +191,11 @@ export async function updateUser(req: Request<IdParams, unknown, UpdateUserInput
 // with no experience recorded go last rather than first.
 export async function getUserSkills(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserSkillDetailRow> = await pool.query<UserSkillDetailRow>(``, [req.params.id])
+    const result: QueryResult<UserSkillDetailRow> = await pool.query<UserSkillDetailRow>(`
+      SELECT skills.name
+      FROM user_skills JOIN skills 
+      ON skills.id = user_skills.skill_id
+      WHERE user_skills.user_id=$1`, [req.params.id])
 
     res.json(result.rows)
   } catch (err: unknown) {
@@ -321,7 +328,13 @@ export async function getRecommendedJobs(req: Request<IdParams>, res: Response):
 // changes nothing.
 export async function deactivateUser(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<UserRow> = await pool.query<UserRow>(``, [req.params.id])
+    const result: QueryResult<UserRow> = await pool.query<UserRow>(
+      `UPDATE users
+      SET is_active = false
+      WHERE id = $1
+      RETURNING *`,
+      [req.params.id],
+    )
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' })
@@ -346,7 +359,10 @@ export async function deactivateUser(req: Request<IdParams>, res: Response): Pro
 // and views, and count the other tables before and after.
 export async function deleteUser(req: Request<IdParams>, res: Response): Promise<void> {
   try {
-    const result: QueryResult<Pick<UserRow, 'id'>> = await pool.query<Pick<UserRow, 'id'>>(``, [req.params.id])
+    const result: QueryResult<Pick<UserRow, 'id'>> = await pool.query<Pick<UserRow, 'id'>>(`
+      DELETE FROM users
+      WHERE id = $1
+      RETURNING *`, [req.params.id])
 
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' })

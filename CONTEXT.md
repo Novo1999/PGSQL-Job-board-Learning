@@ -357,10 +357,10 @@ Tick these off as they go green.
 - [X] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
 - [X] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
 - [X] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
-- [ ] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
-- [ ] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)
-- [ ] `getUserSkills` — `GET /api/users/:id/skills` — first join; `ORDER BY ... DESC NULLS LAST`
-- [ ] `getUserById` — `GET /api/users/:id` — counts from three other tables on one row
+- [X] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
+- [X] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)
+- [X] `getUserSkills` — `GET /api/users/:id/skills` — first join; `ORDER BY ... DESC NULLS LAST`
+- [X] `getUserById` — `GET /api/users/:id` — counts from three other tables on one row
 
 ### Stage 2 — Junction tables and idempotent writes (3 sites)
 
