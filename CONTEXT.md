@@ -1,10 +1,18 @@
 # Project context — Job Board (PostgreSQL learning backend)
 
-> Paste this whole file into a new chat before asking anything about the project.
+> The reference document for this project: the schema, the business rules, the
+> shape of the seed data, and the work order through all 69 query sites.
+>
+> Assistants that read `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/` or
+> `.github/copilot-instructions.md` pick this up automatically. Paste it into a
+> chat with anything that does not.
 
 ---
 
 ## How I want you to help me
+
+**[AGENTS.md](AGENTS.md) is the full contract — read it first.** The short
+version:
 
 I am a **frontend developer learning SQL and PostgreSQL deliberately**. Databases
 are my weak area and this project exists to fix that. The SQL is the point — the
@@ -250,8 +258,16 @@ src/
   utils/http.ts             query-param parsing + PG error code -> HTTP status
 sql/schema.sql              tables, constraints, indexes (drops first, re-runnable)
 sql/seed.sql                sample data (truncates first, re-runnable)
-postman/                    61 requests covering every endpoint
+scripts/                    generate-postman.ts, api-examples.ts, db.ts, the hook
+postman/                    61 requests covering every endpoint — GENERATED
+docs/API.md                 full API reference, ✅/⬜ per query site — GENERATED
 ```
+
+`postman/` and `docs/API.md` are built by `npm run postman`, which reads the
+routers and the controller comments. Never hand-edit them: change the route, the
+handler or the comment above it and regenerate. The ⬜ markers and the "N of 69
+written" count come from detecting which `pool.query()` sites are still empty,
+so the docs track progress on their own.
 
 **The controllers are the exercise.** Each handler is fully written *except the
 SQL*, which is an empty template literal:
@@ -340,7 +356,7 @@ Tick these off as they go green.
 
 - [X] `listUsers` — `GET /api/users` — optional filters via `$1 IS NULL OR ...`, `ILIKE` with wildcards, `COUNT(*) OVER ()` for the total, and a stable `ORDER BY` so pagination doesn't repeat rows
 - [X] `createUser` — `POST /api/users` — `INSERT ... RETURNING`; make `Alice@` and `alice@` collide
-- [ ] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
+- [X] `updateUser` — `PATCH /api/users/:id` — partial update with `COALESCE($n, column)`
 - [ ] `deactivateUser` — `POST /api/users/:id/deactivate` — `UPDATE ... RETURNING`, idempotent
 - [ ] `deleteUser` — `DELETE /api/users/:id` — `DELETE ... RETURNING`; count the other tables before and after (Frank owns two companies, Alice has applications and views)
 - [ ] `getUserSkills` — `GET /api/users/:id/skills` — first join; `ORDER BY ... DESC NULLS LAST`

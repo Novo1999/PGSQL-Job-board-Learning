@@ -4,7 +4,19 @@ dist/
 
 # Environment — never commit real secrets/connection strings
 .env
+.env.*
+!.env.example
 
 # Logs
 npm-debug.log*
+yarn-error.log*
 *.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Local Claude Code overrides (the shared .claude/settings.json IS committed)
+.claude/settings.local.json
