@@ -8,13 +8,13 @@
 import type { Request, Response } from 'express';
 import type { QueryResult } from 'pg';
 import { pool } from '../db.js';
-import {
-  handleDbError,
-  isUniqueViolation,
-  queryInt,
-  queryString,
-} from '../utils/http.js';
 import type { CreateSkillInput, SkillDemandRow, SkillRow } from '../types/database.js';
+import {
+    handleDbError,
+    isUniqueViolation,
+    queryInt,
+    queryString,
+} from '../utils/http.js';
 
 type IdParams = { id: string };
 
@@ -30,7 +30,11 @@ type IdParams = { id: string };
 // returns a short list; an autocomplete never needs more than a screenful.
 export async function listSkills(req: Request, res: Response): Promise<void> {
   try {
-    const result: QueryResult<SkillRow> = await pool.query<SkillRow>(``, [
+    const result: QueryResult<SkillRow> = await pool.query<SkillRow>(
+      `SELECT * FROM skills
+      WHERE ($1::text IS NULL OR name ILIKE '%' || $1 || '%')
+      AND ($2::text IS NULL OR category ILIKE $2)
+      ORDER BY (name ILIKE $1 || '%') DESC, name ASC LIMIT $3`, [
       queryString(req.query.q),
       queryString(req.query.category),
       queryInt(req.query.limit) ?? 20,

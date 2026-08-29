@@ -369,7 +369,7 @@ to a many-to-many table.
 
 - [X] `saveJob` — `POST /api/users/:userId/saved-jobs` — `INSERT ... SELECT` to gate on "job is live", `ON CONFLICT DO NOTHING RETURNING` so the second tap returns no row instead of erroring
 - [X] `unsaveJob` — `DELETE .../saved-jobs/:jobId` — ownership belongs in the `WHERE`, not in an `if` above it
-- [ ] `listSavedJobs` — `GET /api/users/:userId/saved-jobs` — `LEFT JOIN` to the job, `EXISTS` for "already applied", and a bookmark that must survive its posting expiring
+- [X] `listSavedJobs` — `GET /api/users/:userId/saved-jobs` — `LEFT JOIN` to the job, `EXISTS` for "already applied", and a bookmark that must survive its posting expiring
 
 ### Stage 3 — Grouping, and the LEFT JOIN zero (4 sites)
 
