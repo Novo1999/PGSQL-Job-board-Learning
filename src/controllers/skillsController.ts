@@ -92,7 +92,13 @@ export async function createSkill(
   }
 
   try {
-    const result: QueryResult<SkillRow> = await pool.query<SkillRow>(``, [
+    const result: QueryResult<SkillRow> = await pool.query<SkillRow>(
+     `INSERT INTO skills (name, category)
+      VALUES ($1, $2)
+      ON CONFLICT (lower(name))
+      DO UPDATE SET
+       name = skills.name
+      RETURNING *`, [
       req.body.name,
       req.body.category ?? null,
     ]);
@@ -120,7 +126,18 @@ export async function deleteSkill(req: Request<IdParams>, res: Response): Promis
   const force = queryString(req.query.force) === 'true';
 
   try {
-    const result: QueryResult<Pick<SkillRow, 'id'>> = await pool.query<Pick<SkillRow, 'id'>>(``, [
+    const result: QueryResult<Pick<SkillRow, 'id'>> = await pool.query<Pick<SkillRow, 'id'>>(
+      `DELETE FROM skills
+      WHERE id = $1
+      AND ($2 = true OR (NOT EXISTS (  
+          SELECT 1
+          FROM user_skills
+          WHERE skill_id = $1)
+      AND NOT EXISTS (
+          SELECT 1
+          FROM job_skills
+          WHERE skill_id = $1)))
+      RETURNING id`, [
       req.params.id,
       force,
     ]);

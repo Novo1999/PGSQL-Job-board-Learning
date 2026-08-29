@@ -376,9 +376,9 @@ to a many-to-many table.
 `skillsController`. The `demand` query is where most people meet the single most
 common aggregation bug.
 
-- [ ] `listSkills` — `GET /api/skills` — rank prefix matches above substring matches (`ORDER BY CASE WHEN ... THEN 0 ELSE 1 END`)
-- [ ] `createSkill` — `POST /api/skills` — `ON CONFLICT DO UPDATE` upsert, safe under a double-submit
-- [ ] `deleteSkill` — `DELETE /api/skills/:id` — what the FKs from `job_skills` / `user_skills` do here
+- [X] `listSkills` — `GET /api/skills` — rank prefix matches above substring matches (`ORDER BY CASE WHEN ... THEN 0 ELSE 1 END`)
+- [X] `createSkill` — `POST /api/skills` — `ON CONFLICT DO UPDATE` upsert, safe under a double-submit
+- [X] `deleteSkill` — `DELETE /api/skills/:id` — what the FKs from `job_skills` / `user_skills` do here
 - [ ] `getSkillDemand` — `GET /api/skills/demand` — **the lesson:** a `WHERE` clause on the right-hand table silently turns a `LEFT JOIN` back into an inner one and drops every zero-demand skill. Put the "live posting" condition in the `ON`, and use `COUNT(DISTINCT ...)` once two joins multiply rows
 
 ### Stage 4 — Aggregates per group (9 sites)
