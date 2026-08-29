@@ -20,3 +20,6 @@ Thumbs.db
 
 # Local Claude Code overrides (the shared .claude/settings.json IS committed)
 .claude/settings.local.json
+scripts/dev-env.cmd
+scripts/dev-env.ps1
+.vscode/tasks.json
