@@ -60,7 +60,19 @@ export async function listSkills(req: Request, res: Response): Promise<void> {
 // so you can see what the vocabulary contains that has gone stale.
 export async function getSkillDemand(req: Request, res: Response): Promise<void> {
   try {
-    const result: QueryResult<SkillDemandRow> = await pool.query<SkillDemandRow>(``, [
+    const result: QueryResult<SkillDemandRow> = await pool.query<SkillDemandRow>(
+      `SELECT skills.id, skills.name, skills.category,
+       COUNT(DISTINCT jobs.id) AS job_count, COUNT(DISTINCT us.user_id) AS candidate_count, (COUNT(DISTINCT jobs.id)-COUNT(DISTINCT us.user_id)) AS demand_gap
+       FROM skills
+       LEFT JOIN job_skills js ON js.skill_id=skills.id
+       LEFT JOIN user_skills us ON us.skill_id=skills.id
+       LEFT JOIN jobs ON jobs.id=js.job_id  AND jobs.status = 'open'
+       AND (jobs.expires_at IS NULL OR jobs.expires_at > now())
+       GROUP BY skills.id, skills.name, skills.category
+       HAVING $1 = false OR COUNT(DISTINCT jobs.id) > 0 OR COUNT(DISTINCT us.user_id) > 0
+       ORDER BY demand_gap DESC
+       LIMIT $2
+       `, [
       queryString(req.query.used_only) === 'true',
       queryInt(req.query.limit) ?? 50,
     ]);
